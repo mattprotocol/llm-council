@@ -1,4 +1,4 @@
-**NOTE: Based on `https://github.com/karpathy/llm-council` but has been modified to access LLMs via OpenAI API base, with API key having been removed because focus is on local inference and doesn't require it.**
+**NOTE: Based on `https://github.com/karpathy/llm-council` but has been modified to access LLMs via OpenAI API base. API keys are optional (focus is on local inference). Features per-model configuration with Parameter Resolution Logic: per-model values override main values override defaults.**
 
 # LLM Council
 
