@@ -161,6 +161,64 @@ class MCPRegistry:
         
         return "\n".join(lines)
     
+    def get_detailed_tool_info(self) -> str:
+        """
+        Get comprehensive tool information for intelligent analysis.
+        
+        Returns detailed info about each MCP server and its tools including:
+        - Server name and general purpose
+        - Tool names, descriptions, and parameters
+        - Parameter types, descriptions, and allowed values
+        """
+        if not self.clients:
+            return ""
+        
+        lines = ["# Available MCP Servers and Tools\n"]
+        
+        for server_name, client in self.clients.items():
+            port = self.server_ports.get(server_name)
+            
+            # Server header
+            lines.append(f"## Server: {server_name}")
+            lines.append(f"   Port: {port}")
+            lines.append(f"   Tools:")
+            
+            for tool_name, tool in client.tools.items():
+                full_name = f"{server_name}.{tool_name}"
+                lines.append(f"\n   ### {full_name}")
+                lines.append(f"       Description: {tool.description}")
+                
+                # Parameter details
+                schema = tool.input_schema
+                properties = schema.get("properties", {})
+                required = schema.get("required", [])
+                
+                if properties:
+                    lines.append("       Parameters:")
+                    for param_name, param_info in properties.items():
+                        param_type = param_info.get("type", "any")
+                        param_desc = param_info.get("description", "")
+                        is_required = param_name in required
+                        req_str = "(required)" if is_required else "(optional)"
+                        
+                        lines.append(f"         - {param_name}: {param_type} {req_str}")
+                        if param_desc:
+                            lines.append(f"           Description: {param_desc}")
+                        
+                        # Allowed values (enum)
+                        if "enum" in param_info:
+                            lines.append(f"           Allowed values: {param_info['enum']}")
+                        
+                        # Default value
+                        if "default" in param_info:
+                            lines.append(f"           Default: {param_info['default']}")
+                else:
+                    lines.append("       Parameters: None")
+            
+            lines.append("")
+        
+        return "\n".join(lines)
+    
     async def call_tool(self, full_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Call a tool by its full name (server.tool)."""
         if full_name not in self.all_tools:
@@ -191,34 +249,13 @@ class MCPRegistry:
             }
     
     def should_use_tools(self, query: str) -> bool:
-        """Determine if a query might benefit from tool use."""
-        if not self.all_tools:
-            return False
+        """
+        Determine if tool checking should be performed.
         
-        query_lower = query.lower()
-        
-        # Calculator indicators
-        math_indicators = [
-            "calculate", "compute", "what is", "how much",
-            "+", "-", "*", "/", "×", "÷", "plus", "minus",
-            "times", "divided", "multiply", "add", "subtract",
-            "sum", "difference", "product", "quotient"
-        ]
-        
-        # Web search indicators - time-sensitive, current events, specific entities
-        search_indicators = [
-            "current", "latest", "recent", "today", "yesterday",
-            "this week", "this month", "this year", "2024", "2025",
-            "news", "update", "price", "stock", "weather",
-            "who is", "what happened", "when did", "where is",
-            "search for", "look up", "find out", "google",
-            "breaking", "announced", "released", "launched"
-        ]
-        
-        has_math = any(ind in query_lower for ind in math_indicators)
-        has_search = any(ind in query_lower for ind in search_indicators)
-        
-        return has_math or has_search
+        With intelligent two-phase analysis, we always check with the LLM
+        when tools are available. The LLM determines if tools are actually needed.
+        """
+        return len(self.all_tools) > 0
 
 
 # Singleton instance

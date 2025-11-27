@@ -16,7 +16,13 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.6.0)
+### Current Release (v0.6.4)
+- **Intelligent MCP Tool Calling**: Two-phase LLM-driven tool detection and execution
+  - Phase 1: Analyzes queries against detailed MCP server capabilities
+  - Phase 2: Generates specific tool calls with correct parameters
+  - Comprehensive tool info for accurate selection
+
+### Previous Release (v0.6.0)
 - **MCP Integration**: Model Context Protocol for extensible tool capabilities
   - Calculator MCP server for basic math operations
   - Automatic tool detection based on query content

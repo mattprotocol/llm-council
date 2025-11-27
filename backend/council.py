@@ -157,9 +157,155 @@ def check_quality_threshold(all_ratings: List[Dict[str, float]], threshold: floa
 
 # ============== MCP Tool Integration ==============
 
+def _extract_json_from_response(content: str) -> Optional[Dict[str, Any]]:
+    """
+    Extract JSON object from LLM response text.
+    Handles nested objects and common LLM formatting issues.
+    """
+    # First try to find a JSON object starting with {"use_tool" or {"tool"
+    json_start = content.find('{"use_tool"')
+    if json_start == -1:
+        json_start = content.find('{"tool"')
+    if json_start == -1:
+        json_start = content.find('{')
+    
+    if json_start == -1:
+        print("[MCP] No JSON object found in response")
+        return None
+    
+    # Find the matching closing brace
+    brace_count = 0
+    json_end = json_start
+    for i, char in enumerate(content[json_start:], json_start):
+        if char == '{':
+            brace_count += 1
+        elif char == '}':
+            brace_count -= 1
+            if brace_count == 0:
+                json_end = i + 1
+                break
+    
+    if brace_count != 0:
+        print("[MCP] Unbalanced braces in JSON")
+        return None
+    
+    json_str = content[json_start:json_end]
+    print(f"[MCP] Extracted JSON: {json_str}")
+    
+    # Try to fix common JSON issues from LLM output
+    # Fix unquoted keys like {a: 5} -> {"a": 5}
+    fixed_json = re.sub(r'(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1 "\2":', json_str)
+    if fixed_json != json_str:
+        print(f"[MCP] Fixed JSON: {fixed_json}")
+        json_str = fixed_json
+    
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print(f"[MCP] Failed to parse JSON: {e}")
+        return None
+
+
+async def _phase1_analyze_query(user_query: str, detailed_tool_info: str) -> Optional[Dict[str, Any]]:
+    """
+    Phase 1: Analyze the query to determine if MCP tools are needed.
+    
+    Returns:
+        Dict with 'needs_tool', 'tool_name', 'server', 'reasoning' or None on failure
+    """
+    analysis_prompt = f"""You are an intelligent assistant that analyzes user queries to determine if external tools are needed.
+
+{detailed_tool_info}
+
+USER QUERY: {user_query}
+
+TASK: Analyze if any of the available MCP tools would help answer this query accurately.
+
+Consider:
+1. Does the query require real-time data (current time, web search, live info)?
+2. Does the query require computation (math calculations)?
+3. Can the query be answered better with tool assistance?
+
+Respond with a JSON object:
+- If a tool IS needed:
+{{"needs_tool": true, "tool_name": "server.tool_name", "server": "server_name", "reasoning": "brief explanation"}}
+
+- If NO tool is needed:
+{{"needs_tool": false, "reasoning": "brief explanation"}}
+
+Output ONLY valid JSON. No other text."""
+
+    messages = [{"role": "user", "content": analysis_prompt}]
+    tool_model = get_tool_calling_model()
+    
+    print(f"[MCP Phase 1] Analyzing query with {tool_model}...")
+    response = await query_model_with_retry(tool_model, messages, timeout=None, max_retries=1)
+    
+    if not response or not response.get('content'):
+        print("[MCP Phase 1] No response from model")
+        return None
+    
+    content = response['content'].strip()
+    print(f"[MCP Phase 1] Analysis response: {content[:300]}...")
+    
+    return _extract_json_from_response(content)
+
+
+async def _phase2_generate_tool_call(
+    user_query: str,
+    tool_name: str,
+    server_name: str,
+    detailed_tool_info: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Phase 2: Generate the specific tool call with arguments.
+    
+    Returns:
+        Dict with 'tool', 'arguments' or None on failure
+    """
+    execution_prompt = f"""You need to generate a tool call to answer a user query.
+
+{detailed_tool_info}
+
+USER QUERY: {user_query}
+
+SELECTED TOOL: {tool_name}
+
+TASK: Generate the exact tool call with the correct arguments based on the user's query.
+
+For the tool "{tool_name}", create a JSON object with:
+{{"tool": "{tool_name}", "arguments": {{...parameters with correct values...}}}}
+
+Important:
+- Use the exact parameter names from the tool definition
+- Provide appropriate values based on the user's query
+- For math operations, extract the numbers from the query
+- For web searches, formulate a good search query
+
+Output ONLY the JSON object. No other text."""
+
+    messages = [{"role": "user", "content": execution_prompt}]
+    tool_model = get_tool_calling_model()
+    
+    print(f"[MCP Phase 2] Generating tool call for {tool_name}...")
+    response = await query_model_with_retry(tool_model, messages, timeout=None, max_retries=1)
+    
+    if not response or not response.get('content'):
+        print("[MCP Phase 2] No response from model")
+        return None
+    
+    content = response['content'].strip()
+    print(f"[MCP Phase 2] Tool call response: {content[:300]}...")
+    
+    return _extract_json_from_response(content)
+
+
 async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] = None) -> Optional[Dict[str, Any]]:
     """
-    Check if the query needs tool execution and run tools if needed.
+    Intelligent two-phase MCP tool execution.
+    
+    Phase 1: Analyze the query to determine if MCP tools are needed
+    Phase 2: Generate and execute the tool call if needed
     
     Args:
         user_query: The user's question
@@ -170,116 +316,81 @@ async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] 
     """
     registry = get_mcp_registry()
     
-    if not registry.should_use_tools(user_query):
+    # Quick pre-check: are there any tools available?
+    if not registry.all_tools:
+        print("[MCP] No tools available, skipping tool check")
         return None
     
-    # Get tool descriptions for the prompt
-    tool_descriptions = registry.get_tool_descriptions()
-    if not tool_descriptions:
+    # Get detailed tool information for intelligent analysis
+    detailed_tool_info = registry.get_detailed_tool_info()
+    if not detailed_tool_info:
         return None
     
-    # Ask an LLM to determine if and which tool to use
-    tool_decision_prompt = f"""You have access to the following tools:
-
-{tool_descriptions}
-
-User query: {user_query}
-
-IMPORTANT: When a tool can help answer the query, USE IT. For math questions, always use the calculator tools.
-
-If a tool should be used, respond with a JSON object like this EXACT format (with double quotes around ALL keys and string values):
-{{"use_tool": true, "tool": "calculator.add", "arguments": {{"a": 5, "b": 3}}}}
-
-If no tool applies, respond with:
-{{"use_tool": false}}
-
-Output ONLY valid JSON. No explanation needed."""
-
-    messages = [{"role": "user", "content": tool_decision_prompt}]
+    # ===== PHASE 1: Analyze query =====
+    analysis = await _phase1_analyze_query(user_query, detailed_tool_info)
     
-    # Use dedicated tool calling model for tool decisions
-    tool_model = get_tool_calling_model()
-    # Note: Use None for timeout to use config default (600s for reasoning models)
-    print(f"[MCP] Asking model {tool_model} for tool decision...")
-    response = await query_model_with_retry(tool_model, messages, timeout=None, max_retries=1)
-    
-    if not response or not response.get('content'):
-        print(f"[MCP] No response from model for tool decision")
+    if not analysis:
+        print("[MCP Phase 1] Analysis failed, proceeding without tools")
         return None
     
-    content = response['content'].strip()
-    print(f"[MCP] Model response for tool decision: {content[:200]}...")
+    if not analysis.get('needs_tool'):
+        reasoning = analysis.get('reasoning', 'No tool needed')
+        print(f"[MCP Phase 1] No tool needed: {reasoning}")
+        return None
     
-    # Try to parse the tool decision
+    tool_name = analysis.get('tool_name')
+    server_name = analysis.get('server', tool_name.split('.')[0] if tool_name and '.' in tool_name else '')
+    
+    if not tool_name:
+        print("[MCP Phase 1] No tool name in analysis result")
+        return None
+    
+    print(f"[MCP Phase 1] Tool needed: {tool_name} (reason: {analysis.get('reasoning', 'N/A')})")
+    
+    # ===== PHASE 2: Generate tool call =====
+    tool_call = await _phase2_generate_tool_call(user_query, tool_name, server_name, detailed_tool_info)
+    
+    if not tool_call:
+        print("[MCP Phase 2] Failed to generate tool call")
+        return None
+    
+    final_tool_name = tool_call.get('tool', tool_name)
+    arguments = tool_call.get('arguments', {})
+    
+    if not final_tool_name:
+        print("[MCP Phase 2] No tool name in generated call")
+        return None
+    
+    print(f"[MCP Phase 2] Executing: {final_tool_name} with args: {arguments}")
+    
+    # ===== Execute the tool =====
+    if on_event:
+        on_event("tool_call_start", {
+            "tool": final_tool_name,
+            "arguments": arguments
+        })
+    
     try:
-        # Extract JSON from response - handle nested objects by finding balanced braces
-        # First try to find a JSON object starting with {"use_tool"
-        json_start = content.find('{"use_tool"')
-        if json_start == -1:
-            json_start = content.find('{')
-        
-        if json_start == -1:
-            print("[MCP] No JSON object found in response")
-            return None
-        
-        # Find the matching closing brace
-        brace_count = 0
-        json_end = json_start
-        for i, char in enumerate(content[json_start:], json_start):
-            if char == '{':
-                brace_count += 1
-            elif char == '}':
-                brace_count -= 1
-                if brace_count == 0:
-                    json_end = i + 1
-                    break
-        
-        if brace_count != 0:
-            print("[MCP] Unbalanced braces in JSON")
-            return None
-        
-        json_str = content[json_start:json_end]
-        print(f"[MCP] Extracted JSON: {json_str}")
-        
-        # Try to fix common JSON issues from LLM output
-        # Fix unquoted keys like {a: 5} -> {"a": 5}
-        fixed_json = re.sub(r'(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1 "\2":', json_str)
-        if fixed_json != json_str:
-            print(f"[MCP] Fixed JSON: {fixed_json}")
-            json_str = fixed_json
-        
-        decision = json.loads(json_str)
-        print(f"[MCP] Parsed decision: {decision}")
-        
-        if not decision.get('use_tool'):
-            return None
-        
-        tool_name = decision.get('tool')
-        arguments = decision.get('arguments', {})
-        
-        if not tool_name:
-            return None
-        
-        # Execute the tool
-        if on_event:
-            on_event("tool_call_start", {
-                "tool": tool_name,
-                "arguments": arguments
-            })
-        
-        result = await registry.call_tool(tool_name, arguments)
+        result = await registry.call_tool(final_tool_name, arguments)
         
         if on_event:
             on_event("tool_call_complete", {
-                "tool": tool_name,
+                "tool": final_tool_name,
                 "arguments": arguments,
                 "result": result
             })
         
+        print(f"[MCP] Tool execution complete: success={result.get('success', False)}")
         return result
         
-    except (json.JSONDecodeError, KeyError) as e:
-        print(f"[MCP] Failed to parse tool decision: {e}")
+    except Exception as e:
+        print(f"[MCP] Tool execution failed: {e}")
+        if on_event:
+            on_event("tool_call_complete", {
+                "tool": final_tool_name,
+                "arguments": arguments,
+                "result": {"success": False, "error": str(e)}
+            })
         return None
 
 
