@@ -158,20 +158,8 @@ def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
 
 def main():
     """Main entry point for the MCP server."""
-    print("[Calculator MCP] Starting...", file=sys.stderr)
-    
-    for line in sys.stdin:
-        try:
-            request = json.loads(line.strip())
-            response = handle_request(request)
-            
-            if response:  # Don't respond to notifications
-                print(json.dumps(response), flush=True)
-        
-        except json.JSONDecodeError as e:
-            print(f"[Calculator MCP] Invalid JSON: {e}", file=sys.stderr)
-        except Exception as e:
-            print(f"[Calculator MCP] Error: {e}", file=sys.stderr)
+    from mcp_servers.http_wrapper import stdio_main
+    stdio_main(handle_request, "Calculator MCP")
 
 
 if __name__ == "__main__":

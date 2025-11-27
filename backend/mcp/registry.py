@@ -11,17 +11,31 @@ from .client import MCPClient, MCPTool
 class MCPRegistry:
     """Registry for managing MCP servers and their tools."""
     
+    DEFAULT_BASE_PORT = 15000
+    
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = config_path or self._find_config()
         self.clients: Dict[str, MCPClient] = {}
         self.all_tools: Dict[str, MCPTool] = {}  # Full name -> tool
+        self.server_ports: Dict[str, int] = {}  # Server name -> port
         self._initialized = False
+        self._base_port = self.DEFAULT_BASE_PORT
     
     def _find_config(self) -> str:
         """Find the mcp_servers.json config file."""
         # Look in project root
         project_root = Path(__file__).parent.parent.parent
         return str(project_root / "mcp_servers.json")
+    
+    def _assign_port(self, server_config: Dict[str, Any], index: int) -> Optional[int]:
+        """Assign a port to a server based on config or auto-assignment."""
+        # Check if server has explicit port
+        explicit_port = server_config.get("port")
+        if explicit_port is not None and explicit_port != "auto":
+            return explicit_port
+        
+        # Auto-assign: base_port + index
+        return self._base_port + index
     
     async def initialize(self) -> Dict[str, Any]:
         """Initialize all configured MCP servers and discover their tools."""
@@ -42,6 +56,9 @@ class MCPRegistry:
             self._initialized = True
             return {"enabled": False, "error": str(e)}
         
+        # Get base port from config
+        self._base_port = config.get("base_port", self.DEFAULT_BASE_PORT)
+        
         servers = config.get("servers", [])
         if not servers:
             print("[MCP Registry] No servers configured")
@@ -51,7 +68,7 @@ class MCPRegistry:
         # Start each server
         project_root = Path(__file__).parent.parent.parent
         
-        for server_config in servers:
+        for index, server_config in enumerate(servers):
             name = server_config["name"]
             command = server_config["command"]
             
@@ -59,21 +76,26 @@ class MCPRegistry:
             if command and command[0] == "python":
                 command[0] = "python3"
             
+            # Assign port (None means use stdio)
+            port = self._assign_port(server_config, index)
+            
             client = MCPClient(
                 server_name=name,
                 command=command,
-                cwd=str(project_root)
+                cwd=str(project_root),
+                port=port
             )
             
             try:
                 success = await client.start()
                 if success:
                     self.clients[name] = client
+                    self.server_ports[name] = port
                     # Add tools with full names
                     for tool_name, tool in client.tools.items():
                         full_name = f"{name}.{tool_name}"
                         self.all_tools[full_name] = tool
-                    print(f"[MCP Registry] Started server: {name}")
+                    print(f"[MCP Registry] Started server: {name} on port {port}")
                 else:
                     print(f"[MCP Registry] Failed to start server: {name}")
             except Exception as e:
@@ -93,6 +115,7 @@ class MCPRegistry:
         
         self.clients.clear()
         self.all_tools.clear()
+        self.server_ports.clear()
         self._initialized = False
     
     def _get_status(self) -> Dict[str, Any]:
@@ -100,12 +123,15 @@ class MCPRegistry:
         return {
             "enabled": len(self.clients) > 0,
             "servers": list(self.clients.keys()),
+            "server_ports": self.server_ports,
+            "base_port": self._base_port,
             "tools": list(self.all_tools.keys()),
             "tool_details": [
                 {
                     "name": full_name,
                     "description": tool.description,
-                    "server": tool.server_name
+                    "server": tool.server_name,
+                    "port": self.server_ports.get(tool.server_name)
                 }
                 for full_name, tool in self.all_tools.items()
             ]

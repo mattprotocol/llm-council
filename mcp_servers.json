@@ -1,13 +1,16 @@
 {
+  "base_port": 15000,
   "servers": [
     {
       "name": "calculator",
       "command": ["python3", "-m", "mcp_servers.calculator.server"],
+      "port": null,
       "description": "Basic math operations (add, subtract, multiply, divide)"
     },
     {
       "name": "websearch",
       "command": ["python3", "-m", "mcp_servers.websearch.server"],
+      "port": null,
       "description": "Web search for current information, recent events, and specific entities"
     }
   ]

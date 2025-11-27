@@ -1,8 +1,10 @@
-"""MCP client for communicating with MCP servers via stdio."""
+"""MCP client for communicating with MCP servers via stdio or HTTP."""
 
 import asyncio
 import json
 import sys
+import urllib.request
+import urllib.error
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
@@ -17,31 +19,57 @@ class MCPTool:
 
 
 class MCPClient:
-    """Client for communicating with an MCP server via stdio."""
+    """Client for communicating with an MCP server via stdio or HTTP."""
     
-    def __init__(self, server_name: str, command: List[str], cwd: Optional[str] = None):
+    def __init__(self, server_name: str, command: List[str], cwd: Optional[str] = None, port: Optional[int] = None):
         self.server_name = server_name
         self.command = command
         self.cwd = cwd
+        self.port = port  # If set, use HTTP transport
         self.process: Optional[asyncio.subprocess.Process] = None
         self.tools: Dict[str, MCPTool] = {}
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
         self._read_task: Optional[asyncio.Task] = None
     
+    @property
+    def _use_http(self) -> bool:
+        """Check if using HTTP transport."""
+        return self.port is not None
+    
+    @property
+    def _http_url(self) -> str:
+        """Get the HTTP URL for the server."""
+        return f"http://127.0.0.1:{self.port}"
+    
     async def start(self) -> bool:
         """Start the MCP server process and initialize connection."""
         try:
-            self.process = await asyncio.create_subprocess_exec(
-                *self.command,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=self.cwd
-            )
-            
-            # Start reading responses
-            self._read_task = asyncio.create_task(self._read_responses())
+            if self._use_http:
+                # Start server with --port argument
+                cmd = self.command + ['--port', str(self.port)]
+                self.process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=self.cwd
+                )
+                
+                # Wait for server to be ready
+                await self._wait_for_http_ready()
+            else:
+                # Original stdio mode
+                self.process = await asyncio.create_subprocess_exec(
+                    *self.command,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=self.cwd
+                )
+                
+                # Start reading responses
+                self._read_task = asyncio.create_task(self._read_responses())
             
             # Initialize the connection
             await self._initialize()
@@ -54,6 +82,23 @@ class MCPClient:
         except Exception as e:
             print(f"[MCP] Failed to start server {self.server_name}: {e}")
             return False
+    
+    async def _wait_for_http_ready(self, timeout: float = 10.0, interval: float = 0.1):
+        """Wait for the HTTP server to be ready."""
+        import time
+        start = time.time()
+        
+        while time.time() - start < timeout:
+            try:
+                req = urllib.request.Request(f"{self._http_url}/health")
+                with urllib.request.urlopen(req, timeout=1) as response:
+                    if response.status == 200:
+                        return
+            except (urllib.error.URLError, ConnectionRefusedError):
+                pass
+            await asyncio.sleep(interval)
+        
+        raise TimeoutError(f"HTTP server {self.server_name} did not start within {timeout}s")
     
     async def stop(self):
         """Stop the MCP server process."""
@@ -84,6 +129,39 @@ class MCPClient:
         if params:
             request["params"] = params
         
+        if self._use_http:
+            return await self._send_http_request(request)
+        else:
+            return await self._send_stdio_request(request, request_id)
+    
+    async def _send_http_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Send a request via HTTP."""
+        request_json = json.dumps(request).encode('utf-8')
+        
+        def do_request():
+            req = urllib.request.Request(
+                self._http_url,
+                data=request_json,
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            with urllib.request.urlopen(req, timeout=30) as response:
+                # 204 No Content = notification response
+                if response.status == 204:
+                    return {}
+                return json.loads(response.read().decode('utf-8'))
+        
+        # Run in thread pool to not block async loop
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(None, do_request)
+        
+        if isinstance(response, dict) and "error" in response:
+            raise Exception(response["error"].get("message", "Unknown error"))
+        
+        return response.get("result", {}) if isinstance(response, dict) else {}
+    
+    async def _send_stdio_request(self, request: Dict[str, Any], request_id: int) -> Dict[str, Any]:
+        """Send a request via stdio."""
         # Create future for response
         future = asyncio.get_event_loop().create_future()
         self._pending_requests[request_id] = future
@@ -99,7 +177,7 @@ class MCPClient:
             return response
         except asyncio.TimeoutError:
             del self._pending_requests[request_id]
-            raise TimeoutError(f"MCP request {method} timed out")
+            raise TimeoutError(f"MCP request {request['method']} timed out")
     
     async def _read_responses(self):
         """Continuously read responses from the MCP server."""
@@ -140,12 +218,21 @@ class MCPClient:
         })
         
         # Send initialized notification
-        notification = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized"
-        }
-        self.process.stdin.write((json.dumps(notification) + "\n").encode())
-        await self.process.stdin.drain()
+        if self._use_http:
+            # Send via HTTP
+            notification = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized"
+            }
+            await self._send_http_request(notification)
+        else:
+            # Send via stdio
+            notification = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized"
+            }
+            self.process.stdin.write((json.dumps(notification) + "\n").encode())
+            await self.process.stdin.drain()
         
         return result
     
