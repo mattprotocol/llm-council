@@ -250,6 +250,8 @@ function App() {
               if (lastMsg.streaming?.stage1?.[event.model]) {
                 lastMsg.streaming.stage1[event.model].isStreaming = false;
                 lastMsg.streaming.stage1[event.model].tokensPerSecond = event.tokens_per_second;
+                lastMsg.streaming.stage1[event.model].thinkingSeconds = event.thinking_seconds;
+                lastMsg.streaming.stage1[event.model].elapsedSeconds = event.elapsed_seconds;
               }
               return { ...prev, messages };
             });
@@ -341,6 +343,8 @@ function App() {
               if (lastMsg.streaming?.stage2?.[event.model]) {
                 lastMsg.streaming.stage2[event.model].isStreaming = false;
                 lastMsg.streaming.stage2[event.model].tokensPerSecond = event.tokens_per_second;
+                lastMsg.streaming.stage2[event.model].thinkingSeconds = event.thinking_seconds;
+                lastMsg.streaming.stage2[event.model].elapsedSeconds = event.elapsed_seconds;
               }
               return { ...prev, messages };
             });
@@ -409,6 +413,8 @@ function App() {
               if (lastMsg.streaming?.stage3) {
                 lastMsg.streaming.stage3.isStreaming = false;
                 lastMsg.streaming.stage3.tokensPerSecond = event.tokens_per_second;
+                lastMsg.streaming.stage3.thinkingSeconds = event.thinking_seconds;
+                lastMsg.streaming.stage3.elapsedSeconds = event.elapsed_seconds;
               }
               return { ...prev, messages };
             });
@@ -551,6 +557,9 @@ function App() {
             const lastMsg = messages[messages.length - 1];
             if (lastMsg.streaming?.stage1?.[event.model]) {
               lastMsg.streaming.stage1[event.model].isStreaming = false;
+              lastMsg.streaming.stage1[event.model].tokensPerSecond = event.tokens_per_second;
+              lastMsg.streaming.stage1[event.model].thinkingSeconds = event.thinking_seconds;
+              lastMsg.streaming.stage1[event.model].elapsedSeconds = event.elapsed_seconds;
             }
             return { ...prev, messages };
           });
@@ -615,6 +624,9 @@ function App() {
             const lastMsg = messages[messages.length - 1];
             if (lastMsg.streaming?.stage2?.[event.model]) {
               lastMsg.streaming.stage2[event.model].isStreaming = false;
+              lastMsg.streaming.stage2[event.model].tokensPerSecond = event.tokens_per_second;
+              lastMsg.streaming.stage2[event.model].thinkingSeconds = event.thinking_seconds;
+              lastMsg.streaming.stage2[event.model].elapsedSeconds = event.elapsed_seconds;
             }
             return { ...prev, messages };
           });
@@ -682,6 +694,9 @@ function App() {
             lastMsg.loading.stage3 = false;
             if (lastMsg.streaming?.stage3) {
               lastMsg.streaming.stage3.isStreaming = false;
+              lastMsg.streaming.stage3.tokensPerSecond = event.tokens_per_second;
+              lastMsg.streaming.stage3.thinkingSeconds = event.thinking_seconds;
+              lastMsg.streaming.stage3.elapsedSeconds = event.elapsed_seconds;
             }
             return { ...prev, messages };
           });

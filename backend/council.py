@@ -84,6 +84,17 @@ class TokenTracker:
         if elapsed > 0:
             return round(self.token_counts.get(model, 0) / elapsed, 1)
         return 0.0
+    
+    def get_final_timing(self, model: str) -> Dict[str, int]:
+        """Get final timing info: thinking_seconds and elapsed_seconds."""
+        now = time.time()
+        start = self.start_times.get(model, now)
+        thinking_end = self.thinking_end_times.get(model)
+        
+        elapsed = int(now - start)
+        thinking = int(thinking_end - start) if thinking_end else elapsed
+        
+        return {"thinking_seconds": thinking, "elapsed_seconds": elapsed}
 
 
 # ============== Quality Rating Extraction ==============
@@ -833,7 +844,8 @@ Question: {user_query}"""
                     "model": model,
                     "content": final_content,
                     "reasoning_content": chunk.get("reasoning_content", ""),
-                    "tokens_per_second": token_tracker.get_final_tps(model)
+                    "tokens_per_second": token_tracker.get_final_tps(model),
+                    **token_tracker.get_final_timing(model)
                 })
                 return {
                     "model": model,
@@ -1138,7 +1150,8 @@ FINAL RANKING:
                         "parsed_ranking": parsed,
                         "quality_ratings": ratings,
                         "round": round_num,
-                        "tokens_per_second": token_tracker.get_final_tps(model)
+                        "tokens_per_second": token_tracker.get_final_tps(model),
+                        **token_tracker.get_final_timing(model)
                     })
                     return {
                         "model": model,
@@ -1403,7 +1416,8 @@ Provide an expertly formatted final answer that represents the council's collect
                 "model": model_to_use,
                 "response": final_content,
                 "reasoning_content": reasoning_content,
-                "tokens_per_second": token_tracker.get_final_tps(model_to_use)
+                "tokens_per_second": token_tracker.get_final_tps(model_to_use),
+                **token_tracker.get_final_timing(model_to_use)
             })
             return {
                 "model": model_to_use,

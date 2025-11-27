@@ -89,8 +89,8 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
       <div className="tab-content">
         <div className="ranking-model">
           {currentModel}
-          {isStreaming && tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
-          {isStreaming && formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
+          {tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
+          {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
           {isStreaming && <span className="streaming-badge">Streaming...</span>}
         </div>
         

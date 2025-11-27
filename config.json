@@ -8,9 +8,9 @@
   "models": {
     "council": [
       {
-        "id": "microsoft/phi-4-mini-reasoning",
-        "name": "Phi-4 Mini Reasoning",
-        "description": "Microsoft's reasoning-optimized model",
+        "id": "exaone-deep-7.8b-mlx",
+        "name": "EXAONE Deep",
+        "description": "EXAONE Deep 7.8B model with MLX optimization",
         "ip": "",
         "port": "",
         "base_url_template": "",

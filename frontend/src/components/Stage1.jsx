@@ -64,8 +64,8 @@ export default function Stage1({ responses, streaming }) {
       <div className="tab-content">
         <div className="model-name">
           {currentModel}
-          {isStreaming && tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
-          {isStreaming && formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
+          {tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
+          {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
           {isStreaming && <span className="streaming-badge">Streaming...</span>}
         </div>
         
