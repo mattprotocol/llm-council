@@ -52,6 +52,15 @@
       "port": "",
       "base_url_template": "",
       "api_key": ""
+    },
+    "tool_calling": {
+      "id": "nexveridian/granite-4.0-h-tiny",
+      "name": "Granite 4.0 H Tiny",
+      "description": "Tool-calling model for MCP server interactions",
+      "ip": "",
+      "port": "",
+      "base_url_template": "",
+      "api_key": ""
     }
   },
   "deliberation": {

@@ -6,7 +6,7 @@ import json
 from typing import List, Dict, Any, Tuple, AsyncGenerator, Callable, Optional
 from .lmstudio import query_models_parallel, query_model_with_retry, query_model_streaming
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, FORMATTER_MODEL
-from .config_loader import get_deliberation_rounds, get_deliberation_config, get_response_config
+from .config_loader import get_deliberation_rounds, get_deliberation_config, get_response_config, get_tool_calling_model
 from .model_metrics import (
     record_query_result, 
     record_evaluation, 
@@ -185,32 +185,71 @@ async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] 
 
 User query: {user_query}
 
-If this query requires using a tool, respond with ONLY a JSON object in this format:
-{{"use_tool": true, "tool": "server.tool_name", "arguments": {{"arg1": value1, "arg2": value2}}}}
+IMPORTANT: When a tool can help answer the query, USE IT. For math questions, always use the calculator tools.
 
-If no tool is needed, respond with:
+If a tool should be used, respond with a JSON object like this EXACT format (with double quotes around ALL keys and string values):
+{{"use_tool": true, "tool": "calculator.add", "arguments": {{"a": 5, "b": 3}}}}
+
+If no tool applies, respond with:
 {{"use_tool": false}}
 
-Respond with ONLY the JSON, no other text."""
+Output ONLY valid JSON. No explanation needed."""
 
     messages = [{"role": "user", "content": tool_decision_prompt}]
     
-    # Use first council model to decide on tool use
-    response = await query_model_with_retry(COUNCIL_MODELS[0], messages, timeout=30)
+    # Use dedicated tool calling model for tool decisions
+    tool_model = get_tool_calling_model()
+    # Note: Use None for timeout to use config default (600s for reasoning models)
+    print(f"[MCP] Asking model {tool_model} for tool decision...")
+    response = await query_model_with_retry(tool_model, messages, timeout=None, max_retries=1)
     
     if not response or not response.get('content'):
+        print(f"[MCP] No response from model for tool decision")
         return None
     
     content = response['content'].strip()
+    print(f"[MCP] Model response for tool decision: {content[:200]}...")
     
     # Try to parse the tool decision
     try:
-        # Extract JSON from response
-        json_match = re.search(r'\{[^}]+\}', content, re.DOTALL)
-        if not json_match:
+        # Extract JSON from response - handle nested objects by finding balanced braces
+        # First try to find a JSON object starting with {"use_tool"
+        json_start = content.find('{"use_tool"')
+        if json_start == -1:
+            json_start = content.find('{')
+        
+        if json_start == -1:
+            print("[MCP] No JSON object found in response")
             return None
         
-        decision = json.loads(json_match.group())
+        # Find the matching closing brace
+        brace_count = 0
+        json_end = json_start
+        for i, char in enumerate(content[json_start:], json_start):
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    json_end = i + 1
+                    break
+        
+        if brace_count != 0:
+            print("[MCP] Unbalanced braces in JSON")
+            return None
+        
+        json_str = content[json_start:json_end]
+        print(f"[MCP] Extracted JSON: {json_str}")
+        
+        # Try to fix common JSON issues from LLM output
+        # Fix unquoted keys like {a: 5} -> {"a": 5}
+        fixed_json = re.sub(r'(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1 "\2":', json_str)
+        if fixed_json != json_str:
+            print(f"[MCP] Fixed JSON: {fixed_json}")
+            json_str = fixed_json
+        
+        decision = json.loads(json_str)
+        print(f"[MCP] Parsed decision: {decision}")
         
         if not decision.get('use_tool'):
             return None
@@ -884,10 +923,13 @@ async def stage1_collect_responses_streaming(
     import asyncio
     
     # Check for tool usage first
+    print(f"[DEBUG] Checking for tool usage for query: {user_query[:50]}...")
     tool_result = await check_and_execute_tools(user_query, on_event)
+    print(f"[DEBUG] Tool result: {tool_result}")
     tool_context = ""
     if tool_result and tool_result.get('success'):
         tool_context = format_tool_result_for_prompt(tool_result)
+        print(f"[DEBUG] Sending tool_result event")
         on_event("tool_result", {
             "tool": f"{tool_result.get('server')}.{tool_result.get('tool')}",
             "input": tool_result.get('input'),
