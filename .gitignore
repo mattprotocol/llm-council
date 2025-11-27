@@ -23,3 +23,7 @@ frontend/.vite/
 # Temp files
 tmp/
 
+# Local tracking files (not synced to repo)
+TODO.md
+CHANGELOG.md
+FINDINGS.md
