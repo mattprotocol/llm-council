@@ -16,7 +16,10 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.3.3)
+### Current Release (v0.3.4)
+- **Metrics Markdown**: Auto-generated `data/llm_metrics.md` with model rankings and scores
+
+### Previous Release (v0.3.3)
 - **Markdown Export**: Final council answer automatically saved as markdown file
   - Format: `<title>__YYYY-MM-DD_HH-MM-SS.md` in project root
 

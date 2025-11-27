@@ -10,6 +10,7 @@ from pathlib import Path
 # Store metrics in the data directory alongside conversations
 DATA_DIR = Path(__file__).parent.parent / "data"
 METRICS_FILE = DATA_DIR / "llm_metrics.json"
+METRICS_MD_FILE = DATA_DIR / "llm_metrics.md"
 
 # Ensure data directory exists
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -53,10 +54,13 @@ def load_metrics() -> Dict[str, Any]:
 
 
 def save_metrics(metrics: Dict[str, Any]):
-    """Save metrics to file."""
+    """Save metrics to JSON file and update markdown version."""
     metrics["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with open(METRICS_FILE, 'w') as f:
         json.dump(metrics, f, indent=2)
+    
+    # Also save markdown version
+    _save_metrics_markdown(metrics)
 
 
 def get_model_metrics(model_id: str) -> Dict[str, Any]:
@@ -218,3 +222,71 @@ def get_model_ranking() -> List[Dict[str, Any]]:
     
     ranking.sort(key=lambda x: x["rank"])
     return ranking
+
+
+def _save_metrics_markdown(metrics: Dict[str, Any]):
+    """Generate and save a markdown version of the metrics."""
+    if not metrics.get("models"):
+        return
+    
+    # Sort models by rank
+    sorted_models = sorted(
+        metrics["models"].items(),
+        key=lambda x: x[1].get("rank", 999)
+    )
+    
+    md_lines = [
+        "# LLM Council Model Metrics",
+        "",
+        f"**Last Updated:** {metrics.get('last_updated', 'N/A')}",
+        "",
+        "## Model Rankings",
+        "",
+        "| Rank | Model | Rating | Success Rate | Evaluations |",
+        "|------|-------|--------|--------------|-------------|",
+    ]
+    
+    for model_id, data in sorted_models:
+        rank = data.get("rank", "-")
+        rating = round(data.get("composite_rating", 0), 2)
+        total = data.get("total_queries", 0)
+        success = data.get("successful_queries", 0)
+        success_rate = f"{round(success / total * 100, 1)}%" if total > 0 else "N/A"
+        eval_count = len(data.get("evaluations", {}).get("overall", []))
+        
+        # Truncate long model names
+        display_name = model_id[:40] + "..." if len(model_id) > 40 else model_id
+        
+        md_lines.append(f"| {rank} | {display_name} | {rating}/5.0 | {success_rate} | {eval_count} |")
+    
+    md_lines.extend([
+        "",
+        "## Detailed Scores",
+        "",
+    ])
+    
+    for model_id, data in sorted_models:
+        avg_scores = data.get("average_scores", {})
+        md_lines.extend([
+            f"### {model_id}",
+            "",
+            f"- **Composite Rating:** {round(data.get('composite_rating', 0), 2)}/5.0",
+            f"- **Rank:** #{data.get('rank', '-')}",
+            "",
+            "| Category | Score |",
+            "|----------|-------|",
+            f"| Verbosity | {round(avg_scores.get('verbosity', 0), 1)}/5.0 |",
+            f"| Expertise | {round(avg_scores.get('expertise', 0), 1)}/5.0 |",
+            f"| Adherence | {round(avg_scores.get('adherence', 0), 1)}/5.0 |",
+            f"| Clarity | {round(avg_scores.get('clarity', 0), 1)}/5.0 |",
+            f"| Overall | {round(avg_scores.get('overall', 0), 1)}/5.0 |",
+            "",
+            f"**Stats:** {data.get('successful_queries', 0)}/{data.get('total_queries', 0)} successful queries, {data.get('retries', 0)} retries",
+            "",
+        ])
+    
+    # Write markdown file
+    with open(METRICS_MD_FILE, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(md_lines))
+    
+    print(f"[Metrics] Updated markdown: {METRICS_MD_FILE}")
