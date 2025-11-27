@@ -546,9 +546,7 @@ async def websocket_title_updates(websocket: WebSocket):
     """WebSocket endpoint for real-time title generation updates."""
     await websocket.accept()
     
-    client_id = str(uuid.uuid4())
-    print(f"WebSocket client connected: {client_id}")
-    
+    # Silently manage WebSocket connections (no console spam)
     try:
         # Keep the connection alive and handle any incoming messages
         while True:
@@ -559,10 +557,8 @@ async def websocket_title_updates(websocket: WebSocket):
                 await websocket.send_text(f"pong: {message}")
             except WebSocketDisconnect:
                 break
-    except Exception as e:
-        print(f"WebSocket error for client {client_id}: {e}")
-    finally:
-        print(f"WebSocket client disconnected: {client_id}")
+    except Exception:
+        pass  # Silently handle WebSocket errors
 
 
 

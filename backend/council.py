@@ -24,11 +24,21 @@ class TokenTracker:
         self.thinking_end_times: Dict[str, float] = {}
         self.token_counts: Dict[str, int] = {}
     
-    def record_thinking(self, model: str):
+    def record_thinking(self, model: str, delta: str = "") -> float:
         """Record that thinking is happening (start timer if not started)."""
         now = time.time()
         if model not in self.start_times:
             self.start_times[model] = now
+            self.token_counts[model] = 0
+        
+        # Count thinking tokens too
+        if delta:
+            self.token_counts[model] += max(1, len(delta.split()))
+        
+        elapsed = now - self.start_times[model]
+        if elapsed > 0:
+            return round(self.token_counts[model] / elapsed, 1)
+        return 0.0
     
     def mark_thinking_done(self, model: str):
         """Mark when thinking phase ends and response begins."""
@@ -780,12 +790,13 @@ Question: {user_query}"""
                 })
             elif chunk["type"] == "thinking":
                 reasoning = chunk["content"]
-                token_tracker.record_thinking(model)
+                tps = token_tracker.record_thinking(model, chunk["delta"])
                 timing = token_tracker.get_timing(model)
                 on_event("stage1_thinking", {
                     "model": model,
                     "delta": chunk["delta"],
                     "thinking": reasoning,
+                    "tokens_per_second": tps,
                     **timing
                 })
             elif chunk["type"] == "complete":
@@ -1107,13 +1118,14 @@ FINAL RANKING:
                     })
                 elif chunk["type"] == "thinking":
                     reasoning = chunk["content"]
-                    token_tracker.record_thinking(model)
+                    tps = token_tracker.record_thinking(model, chunk["delta"])
                     timing = token_tracker.get_timing(model)
                     on_event("stage2_thinking", {
                         "model": model,
                         "delta": chunk["delta"],
                         "thinking": reasoning,
                         "round": round_num,
+                        "tokens_per_second": tps,
                         **timing
                     })
                 elif chunk["type"] == "complete":
@@ -1370,12 +1382,13 @@ Provide an expertly formatted final answer that represents the council's collect
             })
         elif chunk["type"] == "thinking":
             reasoning = chunk["content"]
-            token_tracker.record_thinking(model_to_use)
+            tps = token_tracker.record_thinking(model_to_use, chunk["delta"])
             timing = token_tracker.get_timing(model_to_use)
             on_event("stage3_thinking", {
                 "model": model_to_use,
                 "delta": chunk["delta"],
                 "thinking": reasoning,
+                "tokens_per_second": tps,
                 **timing
             })
         elif chunk["type"] == "complete":

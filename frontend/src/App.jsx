@@ -235,6 +235,7 @@ function App() {
                 ...(lastMsg.streaming.stage1[event.model] || {}),
                 thinking: event.thinking,
                 isStreaming: true,
+                tokensPerSecond: event.tokens_per_second,
                 thinkingSeconds: event.thinking_seconds,
                 elapsedSeconds: event.elapsed_seconds,
               };
@@ -325,6 +326,7 @@ function App() {
                 ...(lastMsg.streaming.stage2[event.model] || {}),
                 thinking: event.thinking,
                 isStreaming: true,
+                tokensPerSecond: event.tokens_per_second,
                 thinkingSeconds: event.thinking_seconds,
                 elapsedSeconds: event.elapsed_seconds,
               };
@@ -390,6 +392,7 @@ function App() {
                 ...(lastMsg.streaming.stage3 || {}),
                 thinking: event.thinking,
                 isStreaming: true,
+                tokensPerSecond: event.tokens_per_second,
                 thinkingSeconds: event.thinking_seconds,
                 elapsedSeconds: event.elapsed_seconds,
               };
@@ -534,6 +537,7 @@ function App() {
               ...(lastMsg.streaming.stage1[event.model] || {}),
               thinking: event.thinking,
               isStreaming: true,
+              tokensPerSecond: event.tokens_per_second,
               thinkingSeconds: event.thinking_seconds,
               elapsedSeconds: event.elapsed_seconds,
             };
@@ -597,6 +601,7 @@ function App() {
               ...(lastMsg.streaming.stage2[event.model] || {}),
               thinking: event.thinking,
               isStreaming: true,
+              tokensPerSecond: event.tokens_per_second,
               thinkingSeconds: event.thinking_seconds,
               elapsedSeconds: event.elapsed_seconds,
             };
@@ -661,6 +666,7 @@ function App() {
               ...lastMsg.streaming.stage3,
               thinking: event.thinking,
               isStreaming: true,
+              tokensPerSecond: event.tokens_per_second,
               thinkingSeconds: event.thinking_seconds,
               elapsedSeconds: event.elapsed_seconds,
             };

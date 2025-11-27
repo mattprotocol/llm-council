@@ -5,10 +5,10 @@
 echo "Starting LLM Council..."
 echo ""
 
-# Start backend with uvicorn
+# Start backend with uvicorn (suppress INFO-level websocket connection logs)
 echo "Starting backend on http://localhost:8001..."
 cd "$(dirname "$0")"  # Ensure we're in the project root
-uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 &
+uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 --log-level warning &
 BACKEND_PID=$!
 
 # Wait a bit for backend to start
