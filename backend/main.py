@@ -23,6 +23,7 @@ from .title_generation import title_service
 from .model_validator import validate_models
 from .config_loader import load_config
 from .model_metrics import get_all_metrics, get_model_ranking, cleanup_invalid_models
+from .mcp.registry import get_mcp_registry, initialize_mcp, shutdown_mcp
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -71,10 +72,24 @@ async def lifespan(app: FastAPI):
         print(f"❌ Error during startup: {e}")
         sys.exit(1)
     
+    # Initialize MCP servers
+    print("🔌 Initializing MCP servers...")
+    try:
+        mcp_status = await initialize_mcp()
+        if mcp_status.get("enabled"):
+            print(f"✅ MCP initialized: {len(mcp_status.get('tools', []))} tools available")
+            for tool in mcp_status.get("tool_details", []):
+                print(f"   - {tool['name']}: {tool['description']}")
+        else:
+            print("ℹ️  MCP disabled (no servers configured)")
+    except Exception as e:
+        print(f"⚠️  MCP initialization failed: {e} (continuing without MCP)")
+    
     yield
     
     # Shutdown
     print("🛑 Shutting down LLM Council API...")
+    await shutdown_mcp()
     print("✅ Services cleaned up")
 
 app = FastAPI(title="LLM Council API", lifespan=lifespan)
@@ -119,6 +134,21 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+@app.get("/api/mcp/status")
+async def get_mcp_status():
+    """Get MCP registry status and available tools."""
+    registry = get_mcp_registry()
+    return registry._get_status()
+
+
+@app.post("/api/mcp/call")
+async def call_mcp_tool(tool_name: str, arguments: Dict[str, Any]):
+    """Call an MCP tool directly."""
+    registry = get_mcp_registry()
+    result = await registry.call_tool(tool_name, arguments)
+    return result
 
 
 @app.get("/api/metrics")

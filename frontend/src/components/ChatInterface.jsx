@@ -126,10 +126,11 @@ export default function ChatInterface({
                       <span>Running Stage 1: Collecting individual responses...</span>
                     </div>
                   )}
-                  {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
+                  {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0 || msg.toolResult) && (
                     <Stage1 
                       responses={msg.stage1} 
                       streaming={msg.streaming?.stage1}
+                      toolResult={msg.toolResult}
                     />
                   )}
 

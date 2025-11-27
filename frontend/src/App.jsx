@@ -200,6 +200,20 @@ function App() {
       // Send message with token-level streaming
       await api.sendMessageStreamTokens(currentConversationId, content, (eventType, event) => {
         switch (eventType) {
+          case 'tool_result':
+            // MCP tool was used, store the result
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.toolResult = {
+                tool: event.tool,
+                input: event.input,
+                output: event.output,
+              };
+              return { ...prev, messages };
+            });
+            break;
+
           case 'stage1_start':
             setCurrentConversation((prev) => {
               const messages = [...prev.messages];
@@ -508,6 +522,20 @@ function App() {
     // Send message with token-level streaming
     await api.sendMessageStreamTokens(currentConversationId, content, (eventType, event) => {
       switch (eventType) {
+        case 'tool_result':
+          // MCP tool was used, store the result
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.toolResult = {
+              tool: event.tool,
+              input: event.input,
+              output: event.output,
+            };
+            return { ...prev, messages };
+          });
+          break;
+
         case 'stage1_start':
           setCurrentConversation((prev) => {
             const messages = [...prev.messages];

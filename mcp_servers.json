@@ -1,0 +1,9 @@
+{
+  "servers": [
+    {
+      "name": "calculator",
+      "command": ["python3", "-m", "mcp_servers.calculator.server"],
+      "description": "Basic math operations (add, subtract, multiply, divide)"
+    }
+  ]
+}

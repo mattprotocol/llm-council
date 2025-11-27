@@ -2,6 +2,7 @@
 
 import time
 import re
+import json
 from typing import List, Dict, Any, Tuple, AsyncGenerator, Callable, Optional
 from .lmstudio import query_models_parallel, query_model_with_retry, query_model_streaming
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, FORMATTER_MODEL
@@ -12,6 +13,7 @@ from .model_metrics import (
     get_evaluator_for_model,
     get_valid_models
 )
+from .mcp.registry import get_mcp_registry
 
 
 # ============== Token Tracking ==============
@@ -151,6 +153,123 @@ def check_quality_threshold(all_ratings: List[Dict[str, float]], threshold: floa
                 low_rated.add(label)
     
     return len(low_rated) > 0, list(low_rated)
+
+
+# ============== MCP Tool Integration ==============
+
+async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] = None) -> Optional[Dict[str, Any]]:
+    """
+    Check if the query needs tool execution and run tools if needed.
+    
+    Args:
+        user_query: The user's question
+        on_event: Optional callback for streaming events
+        
+    Returns:
+        Tool execution result if tools were used, None otherwise
+    """
+    registry = get_mcp_registry()
+    
+    if not registry.should_use_tools(user_query):
+        return None
+    
+    # Get tool descriptions for the prompt
+    tool_descriptions = registry.get_tool_descriptions()
+    if not tool_descriptions:
+        return None
+    
+    # Ask an LLM to determine if and which tool to use
+    tool_decision_prompt = f"""You have access to the following tools:
+
+{tool_descriptions}
+
+User query: {user_query}
+
+If this query requires using a tool, respond with ONLY a JSON object in this format:
+{{"use_tool": true, "tool": "server.tool_name", "arguments": {{"arg1": value1, "arg2": value2}}}}
+
+If no tool is needed, respond with:
+{{"use_tool": false}}
+
+Respond with ONLY the JSON, no other text."""
+
+    messages = [{"role": "user", "content": tool_decision_prompt}]
+    
+    # Use first council model to decide on tool use
+    response = await query_model_with_retry(COUNCIL_MODELS[0], messages, timeout=30)
+    
+    if not response or not response.get('content'):
+        return None
+    
+    content = response['content'].strip()
+    
+    # Try to parse the tool decision
+    try:
+        # Extract JSON from response
+        json_match = re.search(r'\{[^}]+\}', content, re.DOTALL)
+        if not json_match:
+            return None
+        
+        decision = json.loads(json_match.group())
+        
+        if not decision.get('use_tool'):
+            return None
+        
+        tool_name = decision.get('tool')
+        arguments = decision.get('arguments', {})
+        
+        if not tool_name:
+            return None
+        
+        # Execute the tool
+        if on_event:
+            on_event("tool_call_start", {
+                "tool": tool_name,
+                "arguments": arguments
+            })
+        
+        result = await registry.call_tool(tool_name, arguments)
+        
+        if on_event:
+            on_event("tool_call_complete", {
+                "tool": tool_name,
+                "arguments": arguments,
+                "result": result
+            })
+        
+        return result
+        
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"[MCP] Failed to parse tool decision: {e}")
+        return None
+
+
+def format_tool_result_for_prompt(tool_result: Dict[str, Any]) -> str:
+    """Format tool execution result for inclusion in prompts."""
+    if not tool_result or not tool_result.get('success'):
+        return ""
+    
+    server = tool_result.get('server', 'unknown')
+    tool = tool_result.get('tool', 'unknown')
+    input_args = tool_result.get('input', {})
+    output = tool_result.get('output', {})
+    
+    # Extract the actual result from MCP response
+    if isinstance(output, dict) and 'content' in output:
+        content = output['content']
+        if isinstance(content, list) and len(content) > 0:
+            text_content = content[0].get('text', '')
+            try:
+                result_data = json.loads(text_content)
+                output = result_data
+            except:
+                output = text_content
+    
+    return f"""
+🔧 **MCP Tool Used**: {server}.{tool}
+   **Input**: {json.dumps(input_args)}
+   **Output**: {json.dumps(output) if isinstance(output, dict) else output}
+"""
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
@@ -760,9 +879,21 @@ async def stage1_collect_responses_streaming(
         on_event: Callback for streaming events (event_type, data)
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        List of dicts with 'model' and 'response' keys (includes tool_result if tools were used)
     """
     import asyncio
+    
+    # Check for tool usage first
+    tool_result = await check_and_execute_tools(user_query, on_event)
+    tool_context = ""
+    if tool_result and tool_result.get('success'):
+        tool_context = format_tool_result_for_prompt(tool_result)
+        on_event("tool_result", {
+            "tool": f"{tool_result.get('server')}.{tool_result.get('tool')}",
+            "input": tool_result.get('input'),
+            "output": tool_result.get('output'),
+            "formatted": tool_context
+        })
     
     # Get response config for max_tokens
     response_config = get_response_config()
@@ -770,7 +901,26 @@ async def stage1_collect_responses_streaming(
     
     # Build concise prompt if configured
     response_style = response_config.get("response_style", "standard")
-    if response_style == "concise":
+    
+    # Include tool result in prompt if available
+    if tool_context:
+        if response_style == "concise":
+            prompt = f"""Answer the following question concisely and directly. A tool was used to help answer this question.
+
+{tool_context}
+
+Question: {user_query}
+
+Use the tool output above to inform your answer. Be clear and informative."""
+        else:
+            prompt = f"""A tool was used to help answer this question:
+
+{tool_context}
+
+Question: {user_query}
+
+Please incorporate the tool output into your response."""
+    elif response_style == "concise":
         prompt = f"""Answer the following question concisely and directly. Be clear and informative, but avoid unnecessary verbosity. Aim for 2-3 focused paragraphs.
 
 Question: {user_query}"""

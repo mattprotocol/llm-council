@@ -16,7 +16,14 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.5.0)
+### Current Release (v0.6.0)
+- **MCP Integration**: Model Context Protocol for extensible tool capabilities
+  - Calculator MCP server for basic math operations
+  - Automatic tool detection based on query content
+  - Tool usage displayed with server name, capability, input/output
+  - Easy addition of new MCP servers via configuration
+
+### Previous Release (v0.5.0)
 - **Response Timing Display**: Real-time stopwatch showing thinking and total response time
   - Displays `<thinking_seconds>s/<total_seconds>s` format next to tokens/s
   - Orange-highlighted badge for easy visibility
