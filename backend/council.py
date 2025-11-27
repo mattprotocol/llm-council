@@ -453,8 +453,8 @@ Title:"""
 
     messages = [{"role": "user", "content": title_prompt}]
 
-    # Use first available council model for title generation
-    response = await query_model(COUNCIL_MODELS[0], messages, timeout=30.0)
+    # Use first available council model for title generation (with title timeout)
+    response = await query_model(COUNCIL_MODELS[0], messages, timeout=300.0)
 
     if response is None:
         # Fallback to a generic title
@@ -800,7 +800,7 @@ Respond ONLY with a JSON object in this exact format:
     
     try:
         print(f"[Metrics] Evaluating {model_id} using {evaluator_model}...")
-        result = await query_model_with_retry(evaluator_model, messages, timeout=30.0)
+        result = await query_model_with_retry(evaluator_model, messages, for_evaluation=True)
         if result and result.get("content"):
             content = result["content"]
             print(f"[Metrics] Got evaluation response: {content[:200]}...")

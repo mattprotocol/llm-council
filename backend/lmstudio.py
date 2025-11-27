@@ -13,7 +13,8 @@ async def query_model_with_retry(
     messages: List[Dict[str, str]],
     timeout: Optional[float] = None,
     max_retries: Optional[int] = None,
-    for_title: bool = False
+    for_title: bool = False,
+    for_evaluation: bool = False
 ) -> Optional[Dict[str, Any]]:
     """
     Query a model with retry logic and proper timeout handling.
@@ -24,6 +25,7 @@ async def query_model_with_retry(
         timeout: Request timeout in seconds (uses config default if None)
         max_retries: Maximum retry attempts (uses config default if None)
         for_title: Whether this is for title generation (affects timeout)
+        for_evaluation: Whether this is for model evaluation (shorter timeout)
 
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
@@ -31,16 +33,19 @@ async def query_model_with_retry(
     config = load_config()
     timeout_config = config.get('timeout_config', {})
     
-    # Determine timeout
+    # Determine timeout based on use case
     if timeout is None:
-        if for_title:
-            timeout = timeout_config.get('title_generation_timeout', 60)
+        if for_evaluation:
+            timeout = timeout_config.get('evaluation_timeout', 60)
+        elif for_title:
+            timeout = timeout_config.get('title_generation_timeout', 300)
         else:
-            timeout = timeout_config.get('default_timeout', 30)
+            # Default for council/chairman queries - 5 minutes for reasoning models
+            timeout = timeout_config.get('default_timeout', 300)
     
     # Determine max retries
     if max_retries is None:
-        max_retries = timeout_config.get('max_retries', 3)
+        max_retries = timeout_config.get('max_retries', 2)
     
     backoff_factor = timeout_config.get('retry_backoff_factor', 2)
     connection_timeout = timeout_config.get('connection_timeout', 10)
