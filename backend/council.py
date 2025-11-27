@@ -16,6 +16,178 @@ from .model_metrics import (
 from .mcp.registry import get_mcp_registry
 
 
+# ============== Message Classification ==============
+
+async def classify_message(user_query: str, on_event: Optional[Callable] = None) -> Dict[str, Any]:
+    """
+    Classify the user message to determine if it requires deliberation.
+    
+    Returns:
+        Dict with 'type' (factual|chat|deliberation), 'requires_tools', 'reasoning'
+    """
+    classification_prompt = """Analyze this user message and classify it.
+
+Message: {query}
+
+Respond with ONLY a JSON object (no other text):
+{{
+  "type": "factual|chat|deliberation",
+  "requires_tools": true/false,
+  "reasoning": "brief explanation (max 10 words)"
+}}
+
+Classification rules:
+- "factual": Questions with definitive answers (math, dates, definitions, simple facts, how-to with clear answer)
+- "chat": Greetings, acknowledgments, small talk, simple yes/no questions about the AI itself
+- "deliberation": Opinions, comparisons, feedback requests, creative work, complex analysis, subjective questions, anything requiring multiple perspectives
+
+Examples:
+- "What is 3+5?" → factual
+- "Hello, how are you?" → chat  
+- "Which is better, Python or JavaScript?" → deliberation
+- "Review my code" → deliberation
+- "What's the capital of France?" → factual
+- "Can you help me?" → chat
+- "What do you think about AI?" → deliberation"""
+
+    messages = [{"role": "user", "content": classification_prompt.format(query=user_query)}]
+    tool_model = get_tool_calling_model()
+    
+    if on_event:
+        on_event("classification_start", {"model": tool_model})
+    
+    try:
+        response = await query_model_with_retry(tool_model, messages, timeout=30.0, max_retries=1)
+        
+        if not response or not response.get('content'):
+            print("[Classification] No response, defaulting to deliberation")
+            return {"type": "deliberation", "requires_tools": False, "reasoning": "Classification failed"}
+        
+        content = response['content'].strip()
+        print(f"[Classification] Response: {content[:200]}")
+        
+        # Extract JSON from response
+        result = _extract_json_from_response(content)
+        
+        if result and "type" in result:
+            # Validate type
+            if result["type"] not in ["factual", "chat", "deliberation"]:
+                result["type"] = "deliberation"
+            
+            if on_event:
+                on_event("classification_complete", result)
+            
+            return result
+        
+        # Default to deliberation if parsing fails
+        print("[Classification] JSON parse failed, defaulting to deliberation")
+        return {"type": "deliberation", "requires_tools": False, "reasoning": "Parse failed"}
+        
+    except Exception as e:
+        print(f"[Classification] Error: {e}, defaulting to deliberation")
+        return {"type": "deliberation", "requires_tools": False, "reasoning": f"Error: {str(e)[:30]}"}
+
+
+async def chairman_direct_response(
+    user_query: str,
+    tool_result: Optional[Dict[str, Any]],
+    on_event: Optional[Callable] = None
+) -> Dict[str, Any]:
+    """
+    Generate a direct response from the chairman without council deliberation.
+    Used for factual questions and casual chat.
+    
+    Args:
+        user_query: The user's question
+        tool_result: Optional tool execution result
+        on_event: Optional callback for streaming events
+        
+    Returns:
+        Dict with 'model', 'response', 'type'
+    """
+    # Build prompt based on whether tools were used
+    if tool_result and tool_result.get('success'):
+        tool_context = format_tool_result_for_prompt(tool_result)
+        prompt = f"""Answer this question directly using the tool result provided.
+
+{tool_context}
+
+Question: {user_query}
+
+Provide a clear, direct answer. Be concise but complete."""
+    else:
+        prompt = f"""Answer this question directly and concisely.
+
+Question: {user_query}
+
+Provide a helpful, accurate answer. Be concise but complete."""
+    
+    messages = [{"role": "user", "content": prompt}]
+    content = ""
+    reasoning = ""
+    token_tracker = TokenTracker()
+    
+    if on_event:
+        on_event("direct_response_start", {"model": CHAIRMAN_MODEL})
+    
+    async for chunk in query_model_streaming(CHAIRMAN_MODEL, messages):
+        if chunk["type"] == "token":
+            content = chunk["content"]
+            tps = token_tracker.record_token(CHAIRMAN_MODEL, chunk["delta"])
+            timing = token_tracker.get_timing(CHAIRMAN_MODEL)
+            if on_event:
+                on_event("direct_response_token", {
+                    "model": CHAIRMAN_MODEL,
+                    "delta": chunk["delta"],
+                    "content": content,
+                    "tokens_per_second": tps,
+                    **timing
+                })
+        elif chunk["type"] == "thinking":
+            reasoning = chunk["content"]
+            tps = token_tracker.record_thinking(CHAIRMAN_MODEL, chunk["delta"])
+            timing = token_tracker.get_timing(CHAIRMAN_MODEL)
+            if on_event:
+                on_event("direct_response_thinking", {
+                    "model": CHAIRMAN_MODEL,
+                    "delta": chunk["delta"],
+                    "thinking": reasoning,
+                    "tokens_per_second": tps,
+                    **timing
+                })
+        elif chunk["type"] == "complete":
+            final_content = chunk["content"]
+            if on_event:
+                on_event("direct_response_complete", {
+                    "model": CHAIRMAN_MODEL,
+                    "response": final_content,
+                    "tokens_per_second": token_tracker.get_final_tps(CHAIRMAN_MODEL),
+                    **token_tracker.get_final_timing(CHAIRMAN_MODEL)
+                })
+            return {
+                "model": CHAIRMAN_MODEL,
+                "response": final_content,
+                "type": "direct"
+            }
+        elif chunk["type"] == "error":
+            if on_event:
+                on_event("direct_response_error", {
+                    "model": CHAIRMAN_MODEL,
+                    "error": chunk["error"]
+                })
+            return {
+                "model": CHAIRMAN_MODEL,
+                "response": content if content else "Error generating response.",
+                "type": "direct"
+            }
+    
+    return {
+        "model": CHAIRMAN_MODEL,
+        "response": content if content else "Error generating response.",
+        "type": "direct"
+    }
+
+
 # ============== Token Tracking ==============
 
 class TokenTracker:

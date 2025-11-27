@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import './Stage3.css';
 
-export default function Stage3({ finalResponse, streaming }) {
+export default function Stage3({ finalResponse, streaming, isDirect = false }) {
   // Use completed response if available, otherwise show streaming content
   const displayContent = finalResponse?.response || streaming?.content || '';
   const thinkingContent = streaming?.thinking || '';
@@ -23,11 +23,13 @@ export default function Stage3({ finalResponse, streaming }) {
   }
 
   return (
-    <div className="stage stage3">
-      <h3 className="stage-title">Stage 3: Final Council Answer</h3>
+    <div className={`stage stage3 ${isDirect ? 'direct-response' : ''}`}>
+      <h3 className="stage-title">
+        {isDirect ? '⚡ Direct Response' : 'Stage 3: Final Council Answer'}
+      </h3>
       <div className="final-response">
         <div className="chairman-label">
-          Presenter: {modelName ? (modelName.split('/')[1] || modelName) : 'Formatting...'}
+          {isDirect ? 'Chairman' : 'Presenter'}: {modelName ? (modelName.split('/')[1] || modelName) : 'Generating...'}
           {tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
           {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
           {isStreaming && <span className="streaming-badge">Streaming...</span>}

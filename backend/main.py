@@ -17,7 +17,8 @@ from .council import (
     run_full_council, stage1_collect_responses, stage2_collect_rankings, 
     stage3_synthesize_final, calculate_aggregate_rankings,
     stage1_collect_responses_streaming, stage2_collect_rankings_streaming,
-    stage3_synthesize_streaming
+    stage3_synthesize_streaming,
+    classify_message, chairman_direct_response, check_and_execute_tools
 )
 from .title_generation import title_service
 from .model_validator import validate_models
@@ -400,6 +401,76 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                 """Push events to queue for SSE streaming."""
                 events_queue.put_nowait((event_type, data))
             
+            # ===== PHASE 0: Classify message =====
+            yield f"data: {json.dumps({'type': 'classification_start'})}\n\n"
+            
+            classification = await classify_message(request.content, on_event)
+            yield f"data: {json.dumps({'type': 'classification_complete', 'classification': classification})}\n\n"
+            
+            # Check for tool usage first (regardless of message type)
+            tool_result = None
+            if classification.get("requires_tools", False):
+                yield f"data: {json.dumps({'type': 'tool_check_start'})}\n\n"
+                tool_result = await check_and_execute_tools(request.content, on_event)
+                
+                # Stream any tool events
+                while not events_queue.empty():
+                    event_type, data = events_queue.get_nowait()
+                    yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+            
+            # ===== ROUTING DECISION =====
+            msg_type = classification.get("type", "deliberation")
+            
+            if msg_type in ["factual", "chat"]:
+                # Direct response path - skip council deliberation
+                yield f"data: {json.dumps({'type': 'direct_response_start', 'reason': classification.get('reasoning', 'Simple query')})}\n\n"
+                
+                direct_task = asyncio.create_task(
+                    chairman_direct_response(request.content, tool_result, on_event)
+                )
+                
+                direct_result = None
+                while direct_result is None:
+                    try:
+                        event_type, data = await asyncio.wait_for(
+                            events_queue.get(), timeout=0.1
+                        )
+                        yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+                    except asyncio.TimeoutError:
+                        if direct_task.done():
+                            direct_result = direct_task.result()
+                
+                # Drain remaining events
+                while not events_queue.empty():
+                    event_type, data = events_queue.get_nowait()
+                    yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+                
+                yield f"data: {json.dumps({'type': 'direct_response_complete', 'data': direct_result})}\n\n"
+                
+                # Save as a simplified assistant message (direct response)
+                storage.add_assistant_message(
+                    conversation_id,
+                    [],  # No stage1 results
+                    [],  # No stage2 results
+                    direct_result  # Direct response as stage3
+                )
+                
+                # Save final answer as markdown
+                if direct_result and direct_result.get("response"):
+                    try:
+                        storage.save_final_answer_markdown(
+                            conversation_id, 
+                            direct_result["response"]
+                        )
+                    except Exception as md_err:
+                        print(f"[Storage] Failed to save markdown: {md_err}")
+                
+                yield f"data: {json.dumps({'type': 'complete', 'response_type': 'direct'})}\n\n"
+                return
+            
+            # ===== DELIBERATION PATH =====
+            yield f"data: {json.dumps({'type': 'deliberation_start', 'reason': classification.get('reasoning', 'Complex query')})}\n\n"
+            
             # Stage 1: Stream individual responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
             
@@ -497,7 +568,7 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                 except Exception as md_err:
                     print(f"[Storage] Failed to save markdown: {md_err}")
 
-            yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'response_type': 'deliberation'})}\n\n"
 
         except Exception as e:
             print(f"Token stream error: {e}")

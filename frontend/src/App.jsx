@@ -200,6 +200,100 @@ function App() {
       // Send message with token-level streaming
       await api.sendMessageStreamTokens(currentConversationId, content, (eventType, event) => {
         switch (eventType) {
+          case 'classification_start':
+            // Classification started
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.classification = { status: 'classifying' };
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'classification_complete':
+            // Classification complete - store result
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.classification = event.classification;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'direct_response_start':
+            // Direct response path (no deliberation)
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.responseType = 'direct';
+              lastMsg.loading.stage3 = true;  // Use stage3 loading for direct response
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'direct_response_token':
+            // Streaming token from direct response
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
+              lastMsg.streaming.stage3 = {
+                ...(lastMsg.streaming.stage3 || {}),
+                content: event.content,
+                isStreaming: true,
+                tokensPerSecond: event.tokens_per_second,
+                thinkingSeconds: event.thinking_seconds,
+                elapsedSeconds: event.elapsed_seconds,
+              };
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'direct_response_thinking':
+            // Thinking from direct response
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
+              lastMsg.streaming.stage3 = {
+                ...(lastMsg.streaming.stage3 || {}),
+                thinking: event.thinking,
+                isStreaming: true,
+                tokensPerSecond: event.tokens_per_second,
+                thinkingSeconds: event.thinking_seconds,
+                elapsedSeconds: event.elapsed_seconds,
+              };
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'direct_response_complete':
+            // Direct response complete
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage3 = event.data;
+              lastMsg.loading.stage3 = false;
+              if (lastMsg.streaming?.stage3) {
+                lastMsg.streaming.stage3.isStreaming = false;
+                lastMsg.streaming.stage3.tokensPerSecond = event.tokens_per_second;
+                lastMsg.streaming.stage3.thinkingSeconds = event.thinking_seconds;
+                lastMsg.streaming.stage3.elapsedSeconds = event.elapsed_seconds;
+              }
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'deliberation_start':
+            // Full deliberation path
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.responseType = 'deliberation';
+              return { ...prev, messages };
+            });
+            break;
+
           case 'tool_result':
             // MCP tool was used, store the result
             setCurrentConversation((prev) => {
@@ -522,6 +616,93 @@ function App() {
     // Send message with token-level streaming
     await api.sendMessageStreamTokens(currentConversationId, content, (eventType, event) => {
       switch (eventType) {
+        case 'classification_start':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.classification = { status: 'classifying' };
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'classification_complete':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.classification = event.classification;
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'direct_response_start':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.responseType = 'direct';
+            lastMsg.loading.stage3 = true;
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'direct_response_token':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
+            lastMsg.streaming.stage3 = {
+              ...(lastMsg.streaming.stage3 || {}),
+              content: event.content,
+              isStreaming: true,
+              tokensPerSecond: event.tokens_per_second,
+              thinkingSeconds: event.thinking_seconds,
+              elapsedSeconds: event.elapsed_seconds,
+            };
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'direct_response_thinking':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
+            lastMsg.streaming.stage3 = {
+              ...(lastMsg.streaming.stage3 || {}),
+              thinking: event.thinking,
+              isStreaming: true,
+              tokensPerSecond: event.tokens_per_second,
+              thinkingSeconds: event.thinking_seconds,
+              elapsedSeconds: event.elapsed_seconds,
+            };
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'direct_response_complete':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.stage3 = event.data;
+            lastMsg.loading.stage3 = false;
+            if (lastMsg.streaming?.stage3) {
+              lastMsg.streaming.stage3.isStreaming = false;
+              lastMsg.streaming.stage3.tokensPerSecond = event.tokens_per_second;
+              lastMsg.streaming.stage3.thinkingSeconds = event.thinking_seconds;
+              lastMsg.streaming.stage3.elapsedSeconds = event.elapsed_seconds;
+            }
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'deliberation_start':
+          setCurrentConversation((prev) => {
+            const messages = [...prev.messages];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.responseType = 'deliberation';
+            return { ...prev, messages };
+          });
+          break;
+
         case 'tool_result':
           // MCP tool was used, store the result
           setCurrentConversation((prev) => {

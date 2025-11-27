@@ -117,51 +117,73 @@ export default function ChatInterface({
                 </div>
               ) : (
                 <div className="assistant-message">
-                  <div className="message-label">LLM Council</div>
+                  <div className="message-label">
+                    LLM Council
+                    {msg.classification && (
+                      <span className={`classification-badge ${msg.classification.type || 'unknown'}`}>
+                        {msg.classification.status === 'classifying' ? '🔍 Classifying...' : 
+                         msg.responseType === 'direct' ? '⚡ Direct' : '🤔 Deliberation'}
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Stage 1 */}
-                  {msg.loading?.stage1 && !msg.stage1 && !Object.keys(msg.streaming?.stage1 || {}).length && (
+                  {/* Classification indicator while classifying */}
+                  {msg.classification?.status === 'classifying' && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
+                      <span>Analyzing message type...</span>
                     </div>
                   )}
-                  {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0 || msg.toolResult) && (
-                    <Stage1 
-                      responses={msg.stage1} 
-                      streaming={msg.streaming?.stage1}
-                      toolResult={msg.toolResult}
-                    />
+
+                  {/* For direct responses, skip Stage 1 and Stage 2 */}
+                  {msg.responseType !== 'direct' && (
+                    <>
+                      {/* Stage 1 */}
+                      {msg.loading?.stage1 && !msg.stage1 && !Object.keys(msg.streaming?.stage1 || {}).length && (
+                        <div className="stage-loading">
+                          <div className="spinner"></div>
+                          <span>Running Stage 1: Collecting individual responses...</span>
+                        </div>
+                      )}
+                      {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0 || msg.toolResult) && (
+                        <Stage1 
+                          responses={msg.stage1} 
+                          streaming={msg.streaming?.stage1}
+                          toolResult={msg.toolResult}
+                        />
+                      )}
+
+                      {/* Stage 2 */}
+                      {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
+                        <div className="stage-loading">
+                          <div className="spinner"></div>
+                          <span>Running Stage 2: Peer rankings...</span>
+                        </div>
+                      )}
+                      {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
+                        <Stage2
+                          rankings={msg.stage2}
+                          labelToModel={msg.metadata?.label_to_model}
+                          aggregateRankings={msg.metadata?.aggregate_rankings}
+                          streaming={msg.streaming?.stage2}
+                          roundInfo={msg.roundInfo}
+                        />
+                      )}
+                    </>
                   )}
 
-                  {/* Stage 2 */}
-                  {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>Running Stage 2: Peer rankings...</span>
-                    </div>
-                  )}
-                  {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
-                    <Stage2
-                      rankings={msg.stage2}
-                      labelToModel={msg.metadata?.label_to_model}
-                      aggregateRankings={msg.metadata?.aggregate_rankings}
-                      streaming={msg.streaming?.stage2}
-                      roundInfo={msg.roundInfo}
-                    />
-                  )}
-
-                  {/* Stage 3 */}
+                  {/* Stage 3 / Direct Response */}
                   {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 3: Final synthesis...</span>
+                      <span>{msg.responseType === 'direct' ? 'Generating direct response...' : 'Running Stage 3: Final synthesis...'}</span>
                     </div>
                   )}
                   {(msg.stage3 || msg.streaming?.stage3?.content) && (
                     <Stage3 
                       finalResponse={msg.stage3} 
                       streaming={msg.streaming?.stage3}
+                      isDirect={msg.responseType === 'direct'}
                     />
                   )}
                 </div>

@@ -10,13 +10,22 @@ The UI and UX have been significantly improved with features like real-time stre
 
 In a bit more detail, here is what happens when you submit a query:
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Multi-Round Deliberation**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight. In multi-round mode (configurable), models can refine their responses based on peer feedback across multiple rounds of review.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and rankings from all deliberation rounds and compiles them into a single final answer that is presented to the user.
+1. **Stage 0: Message Classification** (NEW in v0.8.0). The Chairman analyzes your message to determine if it requires deliberation. Simple factual questions and casual chat get direct answers; complex questions requiring opinions, comparisons, or feedback go through the full council process.
+2. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
+3. **Stage 2: Multi-Round Deliberation**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight. In multi-round mode (configurable), models can refine their responses based on peer feedback across multiple rounds of review.
+4. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and rankings from all deliberation rounds and compiles them into a single final answer that is presented to the user.
 
 ## Key Features
 
-### Current Release (v0.7.0)
+### Current Release (v0.8.0)
+- **Intelligent Message Routing**: Chairman classifies messages before deliberation
+  - Classifies messages as factual, chat, or deliberation-required
+  - Direct fast answers for simple questions (skips council)
+  - Full 3-stage deliberation for complex questions
+  - Visual classification badges show response type
+  - Blue styling for direct responses, green for deliberated
+
+### Previous Release (v0.7.0)
 - **System Date-Time MCP Server**: New MCP server for getting current system date and time
   - Tool: `get-system-date-time` with configurable return format
   - Formats: time only, date only, both, or Unix timestamp

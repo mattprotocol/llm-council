@@ -49,6 +49,33 @@
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.classification-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.classification-badge.factual,
+.classification-badge.chat {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.classification-badge.deliberation {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.classification-badge.unknown {
+  background: #f5f5f5;
+  color: #666;
 }
 
 .user-message .message-content {

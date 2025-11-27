@@ -3,6 +3,50 @@
   border-color: #c8e6c8;
 }
 
+/* Direct response styling */
+.stage3.direct-response {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+
+.stage3.direct-response .final-response {
+  border-color: #90caf9;
+}
+
+.stage3.direct-response .chairman-label {
+  color: #1565c0;
+}
+
+.stage3.direct-response .stage-title {
+  color: #1565c0;
+}
+
+.stage3.direct-response .streaming-badge {
+  background: #1976d2;
+}
+
+.stage3.direct-response .tps-badge {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.stage3.direct-response .thinking-section {
+  border-color: #90caf9;
+  background: #f5faff;
+}
+
+.stage3.direct-response .thinking-section summary {
+  color: #1565c0;
+}
+
+.stage3.direct-response .thinking-section .thinking-content {
+  border-top-color: #90caf9;
+}
+
+.stage3.direct-response .cursor-blink {
+  color: #1565c0;
+}
+
 .final-response {
   background: #ffffff;
   padding: 20px;
