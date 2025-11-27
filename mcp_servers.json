@@ -12,6 +12,12 @@
       "command": ["python3", "-m", "mcp_servers.websearch.server"],
       "port": null,
       "description": "Web search for current information, recent events, and specific entities"
+    },
+    {
+      "name": "system-date-time",
+      "command": ["python3", "-m", "mcp_servers.system_date_time.server"],
+      "port": null,
+      "description": "Get current system date and time in various formats"
     }
   ]
 }
