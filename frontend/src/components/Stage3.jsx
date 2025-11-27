@@ -19,7 +19,7 @@ export default function Stage3({ finalResponse, streaming }) {
       <div className="final-response">
         <div className="chairman-label">
           Presenter: {modelName ? (modelName.split('/')[1] || modelName) : 'Formatting...'}
-          {tokensPerSecond && <span className="tps-badge">{tokensPerSecond} tok/s</span>}
+          {isStreaming && tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
           {isStreaming && <span className="streaming-badge">Streaming...</span>}
         </div>
         

@@ -41,7 +41,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
     <div className="stage stage2">
       <div className="stage-header">
         <h3 className="stage-title">Stage 2: Peer Rankings</h3>
-        {roundInfo && roundInfo.maxRounds > 1 && (
+        {roundInfo && roundInfo.maxRounds >= 1 && (
           <span className="round-indicator">
             Round {roundInfo.current} / {roundInfo.maxRounds}
             {roundInfo.isRefinement && ' (Refinement)'}
@@ -68,7 +68,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
               onClick={() => setActiveTab(index)}
             >
               {model.split('/')[1] || model}
-              {modelTps && <span className="tps-indicator">{modelTps} t/s</span>}
+              {modelStreaming?.isStreaming && !modelComplete && modelTps !== undefined && <span className="tps-indicator">{modelTps.toFixed(1)} t/s</span>}
               {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">●</span>}
             </button>
           );
@@ -78,7 +78,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
       <div className="tab-content">
         <div className="ranking-model">
           {currentModel}
-          {tokensPerSecond && <span className="tps-badge">{tokensPerSecond} tok/s</span>}
+          {isStreaming && tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
           {isStreaming && <span className="streaming-badge">Streaming...</span>}
         </div>
         
