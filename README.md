@@ -17,7 +17,13 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.8.0)
+### Current Release (v0.9.0)
+- **Retrieve Web Page MCP Server**: New MCP server for fetching HTML content from URLs
+  - Tool: `get-page-from-url` retrieves full page HTML
+  - Foundation for geo-location and timezone MCP servers
+  - Handles HTTP errors, URL errors, and timeouts (30s)
+
+### Previous Release (v0.8.0)
 - **Intelligent Message Routing**: Chairman classifies messages before deliberation
   - Classifies messages as factual, chat, or deliberation-required
   - Direct fast answers for simple questions (skips council)
