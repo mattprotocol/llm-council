@@ -8,6 +8,26 @@ from typing import List, Dict, Any, Optional, AsyncGenerator, Callable
 from .config_loader import get_model_connection_info, load_config
 
 
+# Brevity system prompt for thinking models to reduce lengthy internal reasoning
+BREVITY_SYSTEM_PROMPT = """You are a focused, efficient assistant. When reasoning:
+- Be concise - skip obvious steps, focus on key insights
+- Commit to good answers quickly without excessive exploration
+- Limit deliberation to essential analysis only"""
+
+
+def is_thinking_model(model_id: str) -> bool:
+    """Check if model is a thinking/reasoning model that benefits from brevity prompt."""
+    thinking_indicators = ['thinking', 'reasoning', 'o1', 'reason']
+    return any(indicator in model_id.lower() for indicator in thinking_indicators)
+
+
+def inject_brevity_prompt(model: str, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Inject brevity system prompt for thinking models."""
+    if is_thinking_model(model):
+        return [{"role": "system", "content": BREVITY_SYSTEM_PROMPT}, *messages]
+    return messages
+
+
 async def query_model_with_retry(
     model: str,
     messages: List[Dict[str, str]],
@@ -121,9 +141,12 @@ async def query_model(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    # Inject brevity prompt for thinking models
+    processed_messages = inject_brevity_prompt(model, messages)
+    
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": processed_messages,
     }
     
     # Add max_tokens if specified
@@ -250,9 +273,12 @@ async def query_model_streaming(
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    # Inject brevity prompt for thinking models
+    processed_messages = inject_brevity_prompt(model, messages)
+    
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": processed_messages,
         "stream": True,
     }
     
