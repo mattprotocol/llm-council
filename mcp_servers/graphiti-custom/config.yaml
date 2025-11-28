@@ -1,0 +1,39 @@
+# Graphiti Custom MCP Server
+# With LM Studio support via custom client
+
+server:
+  transport: http
+  host: "0.0.0.0"
+  port: 8000
+
+# LLM Configuration - Using LM Studio custom client
+llm:
+  provider: lmstudio
+  model: qwen2.5-14b-instruct
+  temperature: 0.0
+  max_tokens: 16384
+  providers:
+    openai_generic:
+      api_key: "not-needed"
+      api_url: "http://192.168.1.111:1234/v1"
+
+# Embedder Configuration - Using OpenAI for embeddings
+embedder:
+  provider: openai
+  model: text-embedding-3-small
+  providers:
+    openai:
+      api_key: "${OPENAI_API_KEY}"
+
+# Database Configuration - FalkorDB
+database:
+  provider: falkordb
+  providers:
+    falkordb:
+      uri: "redis://192.168.1.111:6379"
+      password: ""
+      database: "graphiti"
+
+# Graphiti Settings
+graphiti:
+  group_id: "main"
