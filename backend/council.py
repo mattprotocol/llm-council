@@ -175,32 +175,40 @@ Examples:
 async def chairman_direct_response(
     user_query: str,
     tool_result: Optional[Dict[str, Any]],
-    on_event: Optional[Callable] = None
+    on_event: Optional[Callable] = None,
+    retry_count: int = 0
 ) -> Dict[str, Any]:
     """
     Generate a direct response from the chairman without council deliberation.
     Used for factual questions and casual chat.
     If a formatter model is configured and different from chairman, it formats the final response.
+    Includes refusal detection and retry logic for tool-based queries.
     
     Args:
         user_query: The user's question
         tool_result: Optional tool execution result
         on_event: Optional callback for streaming events
+        retry_count: Internal counter for retry attempts
         
     Returns:
         Dict with 'model', 'response', 'type'
     """
+    max_retries = 2
+    
     # Include current date/time context
     current_time = datetime.now()
     time_context = f"Today's date: {current_time.strftime('%B %d, %Y')} | Current time: {current_time.strftime('%H:%M')}"
     
     # Build prompt and system message based on whether tools were used
     system_message = None
-    if tool_result and tool_result.get('success'):
+    has_tool_data = tool_result and tool_result.get('success')
+    
+    if has_tool_data:
         tool_context = format_tool_result_for_prompt(tool_result)
         
-        # Critical: System message establishes current date as FACT
-        system_message = f"""CRITICAL SYSTEM FACTS - These override your training data:
+        # Increasingly strong system message based on retry count
+        if retry_count == 0:
+            system_message = f"""CRITICAL SYSTEM FACTS - These override your training data:
 - Current date: {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
 - Current time: {current_time.strftime('%H:%M:%S')}
 - Current year: {current_time.year}
@@ -209,6 +217,28 @@ YOU HAVE REAL-TIME ACCESS: A tool was just executed to retrieve LIVE, CURRENT in
 The tool output in the user message is REAL DATA from RIGHT NOW - not hypothetical or simulated.
 NEVER say you "cannot access current information" or "lack real-time data" - you HAVE it via tools.
 Your training data cutoff is IRRELEVANT for this query - trust the tool output completely."""
+        else:
+            # Stronger prompt for retries
+            system_message = f"""⚠️ MANDATORY INSTRUCTIONS - VIOLATION WILL BE FLAGGED:
+
+FACT 1: Today is {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
+FACT 2: The year is {current_time.year} - THIS IS THE PRESENT, NOT THE FUTURE
+FACT 3: A tool WAS EXECUTED and returned REAL DATA below
+
+🚫 FORBIDDEN RESPONSES (you will be retried if you say these):
+- "I cannot access real-time information"
+- "I don't have access to current data"  
+- "My training data ends in..."
+- "I cannot browse the internet"
+- Any claim about lacking current information
+
+✅ REQUIRED BEHAVIOR:
+- Treat the tool output as FACTUAL CURRENT DATA
+- Present the information as if you retrieved it yourself
+- Answer the question using ONLY the tool output data
+- Do NOT apologize for limitations - you have the data!
+
+The tool output below is REAL. Use it."""
         
         prompt = f"""TOOL OUTPUT (LIVE DATA - USE THIS):
 {tool_context}
@@ -237,7 +267,7 @@ Provide a helpful, accurate answer. Be concise but complete."""
     token_tracker = TokenTracker()
     
     if on_event:
-        on_event("direct_response_start", {"model": CHAIRMAN_MODEL})
+        on_event("direct_response_start", {"model": CHAIRMAN_MODEL, "retry": retry_count})
     
     async for chunk in query_model_streaming(CHAIRMAN_MODEL, messages):
         if chunk["type"] == "token":
@@ -266,6 +296,18 @@ Provide a helpful, accurate answer. Be concise but complete."""
                 })
         elif chunk["type"] == "complete":
             chairman_content = chunk["content"]
+            
+            # Check for refusal if we have tool data
+            if has_tool_data and _contains_refusal(chairman_content) and retry_count < max_retries:
+                print(f"[Direct Response] Detected refusal in response (attempt {retry_count + 1}), retrying...")
+                if on_event:
+                    on_event("direct_response_retry", {
+                        "model": CHAIRMAN_MODEL,
+                        "reason": "refusal_detected",
+                        "attempt": retry_count + 1
+                    })
+                return await chairman_direct_response(user_query, tool_result, on_event, retry_count + 1)
+            
             if on_event:
                 on_event("direct_response_complete", {
                     "model": CHAIRMAN_MODEL,
@@ -504,7 +546,37 @@ def _extract_json_from_response(content: str) -> Optional[Dict[str, Any]]:
 
 # Keywords that strongly indicate websearch is required
 WEBSEARCH_KEYWORDS = ['news', 'current events', 'latest', 'recent', 'happening', 
-                      "today's", 'this week', 'trending', 'breaking', 'headlines']
+                      "today's", 'this week', 'trending', 'breaking', 'headlines',
+                      'weather', 'forecast', 'temperature', 'right now', 'currently']
+
+# Phrases that indicate the model is refusing to use tool data
+REFUSAL_PHRASES = [
+    "cannot access",
+    "can't access",
+    "lack real-time",
+    "don't have access to real-time",
+    "do not have access to real-time",
+    "training data cutoff",
+    "knowledge cutoff",
+    "cannot provide current",
+    "can't provide current",
+    "unable to access",
+    "no access to",
+    "cannot retrieve",
+    "can't retrieve",
+    "don't have real-time",
+    "do not have real-time",
+    "as of my last update",
+    "as of my training",
+    "i cannot browse",
+    "i can't browse",
+]
+
+
+def _contains_refusal(text: str) -> bool:
+    """Check if text contains refusal phrases about real-time access."""
+    text_lower = text.lower()
+    return any(phrase in text_lower for phrase in REFUSAL_PHRASES)
 
 
 def _requires_websearch(query: str) -> bool:
@@ -743,10 +815,21 @@ def format_tool_result_for_prompt(tool_result: Dict[str, Any]) -> str:
             except:
                 output = text_content
     
+    # Include timestamp to emphasize this is live data
+    current_time = datetime.now()
+    timestamp = current_time.strftime('%Y-%m-%d %H:%M:%S')
+    
     return f"""
-🔧 **MCP Tool Used**: {server}.{tool}
-   **Input**: {json.dumps(input_args)}
-   **Output**: {json.dumps(output) if isinstance(output, dict) else output}
+══════════════════════════════════════════════════════════════
+⚡ LIVE DATA RETRIEVED AT: {timestamp} (just now!)
+══════════════════════════════════════════════════════════════
+🔧 Tool: {server}.{tool}
+📥 Query: {json.dumps(input_args)}
+📤 REAL-TIME RESULT:
+{json.dumps(output, indent=2) if isinstance(output, dict) else output}
+══════════════════════════════════════════════════════════════
+⚠️ THIS IS REAL, CURRENT DATA - NOT FROM TRAINING. USE IT!
+══════════════════════════════════════════════════════════════
 """
 
 
@@ -1388,19 +1471,28 @@ async def stage1_collect_responses_streaming(
     if tool_context:
         # Get current date/time to provide context
         current_time = datetime.now()
-        time_context = f"Today's date: {current_time.strftime('%B %d, %Y')} | Current time: {current_time.strftime('%H:%M')}"
         
-        # Critical: Add system message to establish current date as FACT
-        # This helps override model's tendency to think dates after training cutoff are "future"
-        system_message = f"""CRITICAL SYSTEM FACTS - These override your training data:
-- Current date: {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
-- Current time: {current_time.strftime('%H:%M:%S')}
-- Current year: {current_time.year}
+        # Stronger system message that explicitly forbids refusal
+        system_message = f"""⚠️ MANDATORY INSTRUCTIONS - VIOLATION WILL BE FLAGGED:
 
-YOU HAVE REAL-TIME ACCESS: A tool was just executed to retrieve LIVE, CURRENT information. 
-The tool output in the user message is REAL DATA from RIGHT NOW - not hypothetical or simulated.
-NEVER say you "cannot access current information" or "lack real-time data" - you HAVE it via tools.
-Your training data cutoff is IRRELEVANT for this query - trust the tool output completely."""
+FACT 1: Today is {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
+FACT 2: The year is {current_time.year} - THIS IS THE PRESENT, NOT THE FUTURE
+FACT 3: A tool WAS EXECUTED and returned REAL DATA below
+
+🚫 FORBIDDEN RESPONSES (you will be retried if you say these):
+- "I cannot access real-time information"
+- "I don't have access to current data"  
+- "My training data ends in..."
+- "I cannot browse the internet"
+- Any claim about lacking current information
+
+✅ REQUIRED BEHAVIOR:
+- Treat the tool output as FACTUAL CURRENT DATA
+- Present the information as if you retrieved it yourself
+- Answer the question using ONLY the tool output data
+- Do NOT apologize for limitations - you have the data!
+
+The tool output below is REAL. Use it."""
         
         if response_style == "concise":
             prompt = f"""TOOL OUTPUT (LIVE DATA - USE THIS):
