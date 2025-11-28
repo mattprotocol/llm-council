@@ -22,6 +22,15 @@ kill_port() {
 kill_port 8001
 kill_port 5173
 
+# Start Graphiti MCP Server (Docker)
+echo "Starting Graphiti MCP Server..."
+./mcp_servers/graphiti-custom/start.sh
+GRAPHITI_STARTED=$?
+
+if [ $GRAPHITI_STARTED -ne 0 ]; then
+    echo "⚠️  Graphiti MCP Server failed to start (continuing anyway)"
+fi
+
 # Start backend with uvicorn (suppress INFO-level websocket connection logs)
 echo "Starting backend on http://localhost:8001..."
 uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 --log-level warning &
@@ -40,8 +49,9 @@ echo ""
 echo "✓ LLM Council is running!"
 echo "  Backend:  http://localhost:8001"
 echo "  Frontend: http://localhost:5173"
+echo "  Graphiti: http://localhost:8000/mcp/"
 echo ""
-echo "Press Ctrl+C to stop both servers"
+echo "Press Ctrl+C to stop servers (Graphiti container will keep running)"
 
 # Wait for Ctrl+C
 trap "echo 'Stopping servers...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" SIGINT SIGTERM
