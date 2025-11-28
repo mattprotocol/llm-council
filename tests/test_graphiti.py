@@ -39,7 +39,7 @@ async def run_graphiti_test():
     print("=" * 60)
     
     # Initialize MCP registry
-    print("\n[1/6] Initializing MCP servers...")
+    print("\n[1/7] Initializing MCP servers...")
     registry = get_mcp_registry()
     status = await registry.initialize()
     
@@ -53,7 +53,7 @@ async def run_graphiti_test():
     print(f"   Tools: {[t.split('.')[-1] for t in status.get('tools', []) if 'graphiti' in t]}")
     
     # Check server status
-    print("\n[2/6] Checking Graphiti server status...")
+    print("\n[2/7] Checking Graphiti server status...")
     try:
         status_result = await registry.call_tool('graphiti.get_status', {})
         _print_raw_json("get_status", status_result)
@@ -70,6 +70,23 @@ async def run_graphiti_test():
     # Test group ID
     test_group = "main"
     
+    # Clear existing data first
+    print(f"\n[3/7] Clearing existing graph data...")
+    try:
+        clear_result = await registry.call_tool('graphiti.clear_graph', {
+            'group_id': test_group
+        })
+        _print_raw_json("clear_graph", clear_result)
+        if clear_result.get('success'):
+            print("   ✅ Graph cleared successfully")
+        else:
+            print(f"   ⚠️ Clear failed (may be empty): {clear_result.get('error')}")
+    except Exception as e:
+        print(f"   ⚠️ Clear failed (may be empty): {e}")
+    
+    # Wait a moment for clear to complete
+    await asyncio.sleep(2)
+    
     # Define test memories
     memories = [
         ("jane_preference_1", "Jane likes her New Balance shoes"),
@@ -79,72 +96,42 @@ async def run_graphiti_test():
         ("jane_preference_5", "Jane thinks Adidas shoes are ok but she likes the brand of shoes better that she has clothes from")
     ]
     
-    # Check if memories already exist
-    print(f"\n[3/6] Checking for existing memories in group '{test_group}'...")
-    existing_nodes = []
-    try:
-        nodes_result = await registry.call_tool('graphiti.search_nodes', {
-            'query': 'Jane shoes Nike Adidas New Balance preferences',
-            'group_ids': [test_group],
-            'max_nodes': 20
-        })
-        _print_raw_json("search_nodes (existing check)", nodes_result)
-        
-        if not nodes_result.get('success'):
-            print(f"   ❌ Search failed: {nodes_result.get('error')}")
-            await registry.shutdown()
-            return False
+    # Add all memories
+    print("\n[4/7] Adding memories...")
+    for i, (name, memory) in enumerate(memories, 1):
+        try:
+            result = await registry.call_tool('graphiti.add_memory', {
+                'name': name,
+                'episode_body': memory,
+                'group_id': test_group,
+                'source': 'text',
+                'source_description': 'User preference observation'
+            })
+            _print_raw_json(f"add_memory [{i}/5]", result)
             
-        existing_nodes = _extract_nodes(nodes_result)
-        
-        if existing_nodes:
-            print(f"   ✅ Found {len(existing_nodes)} existing nodes:")
-            for node in existing_nodes[:5]:
-                print(f"      - {node.get('name', 'unknown')}: {node.get('summary', '')[:50]}...")
-            memories_exist = True
-        else:
-            print("   ℹ️  No existing memories found - will create them")
-            memories_exist = False
-    except Exception as e:
-        print(f"   ❌ Error checking existing memories: {e}")
-        await registry.shutdown()
-        return False
-    
-    # Add memories only if they don't exist
-    if not memories_exist:
-        print("\n[4/6] Adding memories...")
-        for i, (name, memory) in enumerate(memories, 1):
-            try:
-                result = await registry.call_tool('graphiti.add_memory', {
-                    'name': name,
-                    'episode_body': memory,
-                    'group_id': test_group,
-                    'source': 'text',
-                    'source_description': 'User preference observation'
-                })
-                _print_raw_json(f"add_memory [{i}/5]", result)
-                
-                if not result.get('success'):
-                    print(f"   ❌ [{i}/5] Failed: {result.get('error')}")
-                    await registry.shutdown()
-                    return False
-                    
-                msg = _extract_message(result)
-                status_icon = "⏳" if "queued" in msg.lower() else "✅"
-                print(f"   {status_icon} [{i}/5] \"{memory[:45]}...\"")
-            except Exception as e:
-                print(f"   ❌ [{i}/5] Exception: {e}")
+            if not result.get('success'):
+                print(f"   ❌ [{i}/5] Failed: {result.get('error')}")
                 await registry.shutdown()
                 return False
-        
-        # Wait for processing
-        print("\n   Waiting for graph processing (30s)...")
-        await asyncio.sleep(30)
-    else:
-        print("\n[4/6] Skipping memory creation (already exist)")
+                
+            msg = _extract_message(result)
+            status_icon = "⏳" if "queued" in msg.lower() else "✅"
+            print(f"   {status_icon} [{i}/5] \"{memory[:45]}...\"")
+        except Exception as e:
+            print(f"   ❌ [{i}/5] Exception: {e}")
+            await registry.shutdown()
+            return False
+    
+    # Wait for processing - each episode takes ~25s with local LLM
+    print("\n   Waiting for graph processing...")
+    print("   (Each episode takes ~25s to process with local LLM)")
+    total_wait = 150  # 5 episodes * 25s + buffer
+    for i in range(0, total_wait, 15):
+        await asyncio.sleep(15)
+        print(f"      ... {i+15}s / {total_wait}s")
     
     # Validate memories were created
-    print("\n[5/6] Validating knowledge graph data...")
+    print("\n[5/7] Validating knowledge graph data...")
     
     validation_passed = False
     
@@ -165,7 +152,7 @@ async def run_graphiti_test():
         episodes = _extract_episodes(episodes_result)
         if episodes:
             print(f"   ✅ Found {len(episodes)} episodes")
-            for ep in episodes[:3]:
+            for ep in episodes[:5]:
                 print(f"      - {ep}")
         else:
             print("   ⚠️  No episodes found")
@@ -245,7 +232,7 @@ async def run_graphiti_test():
     
     # Final query
     print("\n" + "=" * 60)
-    print("[6/6] FINAL QUERY: Which shoe brand does Jane like best?")
+    print("[6/7] FINAL QUERY: Which shoe brand does Jane like best?")
     print("=" * 60)
     
     print("\n   Searching facts for answer...")
@@ -288,7 +275,7 @@ async def run_graphiti_test():
     
     # Expected answer analysis
     print("\n" + "-" * 60)
-    print("   EXPECTED ANSWER: Nike")
+    print("[7/7] EXPECTED ANSWER: Nike")
     print("   REASONING:")
     print("      - Jane has Nike clothes")
     print("      - Jane prefers shoes from the brand she has clothes from")
