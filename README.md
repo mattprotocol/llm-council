@@ -17,7 +17,13 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.9.0)
+### Current Release (v0.10.0)
+- **System Geo-Location MCP Server**: New MCP server for retrieving location based on IP
+  - Tool: `get-system-geo-location` returns City, State/Region, Postal Code, Country
+  - Uses whatismyip.com for IP-based geolocation
+  - No external API keys required
+
+### Previous Release (v0.9.0)
 - **Retrieve Web Page MCP Server**: New MCP server for fetching HTML content from URLs
   - Tool: `get-page-from-url` retrieves full page HTML
   - Foundation for geo-location and timezone MCP servers

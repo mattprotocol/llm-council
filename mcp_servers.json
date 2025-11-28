@@ -24,6 +24,12 @@
       "command": ["python3", "-m", "mcp_servers.retrieve_web_page.server"],
       "port": null,
       "description": "Returns the webpage's HTML content from a specified URL"
+    },
+    {
+      "name": "system-geo-location",
+      "command": ["python3", "-m", "mcp_servers.system_geo_location.server"],
+      "port": null,
+      "description": "Returns the system's geographic location (City, State/Region, Postal Code, Country) based on IP address"
     }
   ]
 }
