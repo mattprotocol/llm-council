@@ -79,8 +79,17 @@ class MCPRegistry:
             if command and command[0] == "python":
                 command[0] = "python3"
             
-            # Assign port (None means use stdio)
-            port = self._assign_port(server_config, index)
+            # Determine transport mode: 
+            # - "stdio" = no port, use stdin/stdout
+            # - "http" = assign port (default for local servers)
+            transport = server_config.get("transport", "http")
+            
+            if transport == "stdio":
+                # External MCP server using stdio transport (e.g., npx servers)
+                port = None
+            else:
+                # HTTP transport - assign port
+                port = self._assign_port(server_config, index)
             
             client = MCPClient(
                 server_name=name,

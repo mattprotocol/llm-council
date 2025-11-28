@@ -36,6 +36,12 @@
       "command": ["python3", "-m", "mcp_servers.system_timezone.server"],
       "port": null,
       "description": "Returns list of time zones from the tz database"
+    },
+    {
+      "name": "sequential-thinking",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "transport": "stdio",
+      "description": "Dynamic problem-solving through structured sequential thinking steps"
     }
   ]
 }
