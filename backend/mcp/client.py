@@ -21,31 +21,44 @@ class MCPTool:
 class MCPClient:
     """Client for communicating with an MCP server via stdio or HTTP."""
     
-    def __init__(self, server_name: str, command: List[str], cwd: Optional[str] = None, port: Optional[int] = None):
+    def __init__(self, server_name: str, command: List[str], cwd: Optional[str] = None, 
+                 port: Optional[int] = None, external_url: Optional[str] = None):
         self.server_name = server_name
         self.command = command
         self.cwd = cwd
         self.port = port  # If set, use HTTP transport
+        self.external_url = external_url  # If set, connect to external server (no subprocess)
         self.process: Optional[asyncio.subprocess.Process] = None
         self.tools: Dict[str, MCPTool] = {}
         self._request_id = 0
         self._pending_requests: Dict[int, asyncio.Future] = {}
         self._read_task: Optional[asyncio.Task] = None
+        self._session_id: Optional[str] = None  # For stateful HTTP MCP servers
     
     @property
     def _use_http(self) -> bool:
         """Check if using HTTP transport."""
-        return self.port is not None
+        return self.port is not None or self.external_url is not None
+    
+    @property
+    def _is_external(self) -> bool:
+        """Check if connecting to external server (no subprocess needed)."""
+        return self.external_url is not None
     
     @property
     def _http_url(self) -> str:
         """Get the HTTP URL for the server."""
+        if self.external_url:
+            return self.external_url.rstrip('/')
         return f"http://127.0.0.1:{self.port}"
     
     async def start(self) -> bool:
         """Start the MCP server process and initialize connection."""
         try:
-            if self._use_http:
+            if self._is_external:
+                # External server - just verify it's reachable
+                await self._wait_for_http_ready()
+            elif self._use_http:
                 # Start server with --port argument
                 cmd = self.command + ['--port', str(self.port)]
                 self.process = await asyncio.create_subprocess_exec(
@@ -88,9 +101,20 @@ class MCPClient:
         import time
         start = time.time()
         
+        # For external servers, try the base URL's health endpoint
+        # For local servers, append /health to the URL
+        if self._is_external:
+            # External URL might be like http://localhost:8000/mcp/
+            # Try the base URL with /health
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(self.external_url.rstrip('/'))
+            health_url = urlunparse((parsed.scheme, parsed.netloc, '/health', '', '', ''))
+        else:
+            health_url = f"{self._http_url}/health"
+        
         while time.time() - start < timeout:
             try:
-                req = urllib.request.Request(f"{self._http_url}/health")
+                req = urllib.request.Request(health_url, headers={'Accept': '*/*'})
                 with urllib.request.urlopen(req, timeout=1) as response:
                     if response.status == 200:
                         return
@@ -102,6 +126,10 @@ class MCPClient:
     
     async def stop(self):
         """Stop the MCP server process."""
+        # External servers are not managed by us
+        if self._is_external:
+            return
+            
         if self._read_task:
             self._read_task.cancel()
             try:
@@ -137,23 +165,67 @@ class MCPClient:
     async def _send_http_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Send a request via HTTP."""
         request_json = json.dumps(request).encode('utf-8')
+        is_notification = 'id' not in request  # Notifications don't have id
         
         def do_request():
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/event-stream'
+            }
+            # Include session ID if we have one
+            if self._session_id:
+                headers['mcp-session-id'] = self._session_id
+            
             req = urllib.request.Request(
                 self._http_url,
                 data=request_json,
-                headers={'Content-Type': 'application/json'},
+                headers=headers,
                 method='POST'
             )
             with urllib.request.urlopen(req, timeout=30) as response:
-                # 204 No Content = notification response
+                # Store session ID from response if present
+                session_id = response.headers.get('mcp-session-id')
+                
+                # 204 No Content = notification response (empty)
                 if response.status == 204:
-                    return {}
-                return json.loads(response.read().decode('utf-8'))
+                    return {'_session_id': session_id, '_empty': True}
+                
+                content = response.read().decode('utf-8')
+                
+                # Empty response for notifications is valid
+                if not content.strip():
+                    return {'_session_id': session_id, '_empty': True}
+                
+                # Check if it's SSE format (event: ... data: ...)
+                if content.startswith('event:') or content.startswith('data:'):
+                    # Parse SSE format - extract JSON from data lines
+                    for line in content.split('\n'):
+                        if line.startswith('data:'):
+                            json_str = line[5:].strip()
+                            if json_str:
+                                result = json.loads(json_str)
+                                result['_session_id'] = session_id
+                                return result
+                    return {'_session_id': session_id, '_empty': True}
+                else:
+                    # Regular JSON response
+                    result = json.loads(content)
+                    if isinstance(result, dict):
+                        result['_session_id'] = session_id
+                    return result
         
         # Run in thread pool to not block async loop
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(None, do_request)
+        
+        # Update session ID if received
+        if isinstance(response, dict):
+            new_session = response.pop('_session_id', None)
+            if new_session:
+                self._session_id = new_session
+            # Handle empty responses for notifications
+            if response.pop('_empty', False):
+                return {}
         
         if isinstance(response, dict) and "error" in response:
             raise Exception(response["error"].get("message", "Unknown error"))

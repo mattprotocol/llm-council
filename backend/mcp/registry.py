@@ -73,29 +73,38 @@ class MCPRegistry:
         
         for index, server_config in enumerate(servers):
             name = server_config["name"]
-            command = server_config["command"]
+            command = server_config.get("command", [])
             
             # Resolve command relative to project root
             if command and command[0] == "python":
                 command[0] = "python3"
             
             # Determine transport mode: 
+            # - "external" = connect to existing server at URL (no subprocess)
             # - "stdio" = no port, use stdin/stdout
             # - "http" = assign port (default for local servers)
             transport = server_config.get("transport", "http")
+            external_url = server_config.get("url")  # For external servers
             
-            if transport == "stdio":
+            if transport == "external" or external_url:
+                # External server already running - just connect
+                port = None
+                external_url = external_url or server_config.get("url")
+            elif transport == "stdio":
                 # External MCP server using stdio transport (e.g., npx servers)
                 port = None
+                external_url = None
             else:
                 # HTTP transport - assign port
                 port = self._assign_port(server_config, index)
+                external_url = None
             
             client = MCPClient(
                 server_name=name,
                 command=command,
                 cwd=str(project_root),
-                port=port
+                port=port,
+                external_url=external_url
             )
             
             try:
