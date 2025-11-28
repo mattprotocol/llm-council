@@ -63,6 +63,7 @@ Format:
 1. Work through TODO.md: Current → Next → Future
 2. Complete each item fully before starting next
 3. Follow versioning process for each implementation session
+4. **Run automated tests** after each change (see Testing Workflow below)
 
 ### Step 5: Update Tracking Files
 After each completed change:
@@ -218,15 +219,23 @@ The project follows semantic versioning with the format `<release>.<feature>.<fi
 - **Feature** (0.x.0): Increment whenever a new feature is implemented
 - **Fix** (0.0.x): Increment with every bug fix being implemented
 
+**⚠️ CRITICAL: Version numbers must be sequential and monotonically increasing!**
+- Always base the next version on the HIGHEST existing version number
+- Never create a fix version (0.x.y) that is lower than an existing feature version
+- Example: If v0.14.0 exists, next fix must be v0.14.1, NOT v0.8.x
+
 ### Mandatory Workflow (Follow These Steps In Order)
 
 **Step 1: Determine Next Version**
 ```bash
-git branch -a | grep "v[0-9]"  # List version branches
+# CRITICAL: Find the highest version number, not just list branches
+git branch -a | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | tail -1
 ```
-- If implementing features: increment middle number (e.g., v0.3.0 → v0.4.0)
-- If fixing bugs: increment last number (e.g., v0.3.0 → v0.3.1)
+- Check the HIGHEST version number across ALL branches
+- If implementing features: increment middle number, reset fix to 0 (e.g., v0.14.0 → v0.15.0)
+- If fixing bugs: increment last number from highest version (e.g., v0.14.0 → v0.14.1)
 - Multiple features in one session: use single feature increment
+- **NEVER go backwards** - if v0.14.0 exists, next version must be v0.14.x or v0.15.0+
 
 **Step 2: Create Version Branch BEFORE Coding**
 ```bash
@@ -236,19 +245,26 @@ git checkout -b v<new-version>  # e.g., git checkout -b v0.4.0
 **Step 3: Implement Changes**
 - Make all code changes on the version branch
 - Keep changes focused on the proposal scope
+- **Run tests after each significant change**: `uv run -m tests.test_runner`
+- Fix any test failures before proceeding
 
-**Step 4: Commit Changes**
+**Step 4: Run Final Test Suite**
+```bash
+uv run -m tests.test_runner  # All tests MUST pass before committing
+```
+
+**Step 5: Commit Changes**
 ```bash
 git add -A
 git commit -m "v<version>: <brief description of changes>"
 ```
 
-**Step 5: Push Branch to Remote**
+**Step 6: Push Branch to Remote**
 ```bash
 git push -u origin v<new-version>
 ```
 
-**Step 6: Merge to Master (when approved)**
+**Step 7: Merge to Master (when approved)**
 ```bash
 git checkout master
 git merge v<new-version>
@@ -268,6 +284,79 @@ Version branches: `v<release>.<feature>.<fix>` (e.g., `v0.1.0`, `v1.2.3`)
 - Support for reasoning models (o1, etc.) with special handling
 
 ## Testing Notes
+
+### Automated Testing Framework
+
+The project includes automated tests in `tests/`. Run tests to validate changes:
+
+```bash
+# Run all tests (auto-starts/stops server)
+uv run -m tests.test_runner
+
+# Run specific scenario
+uv run -m tests.test_runner --scenario current_news_websearch
+
+# Filter by tags (mcp, websearch, factual, deliberation, etc.)
+uv run -m tests.test_runner --tags mcp
+
+# Use existing running server (disable auto-management)
+uv run -m tests.test_runner --no-auto-server
+
+# Run with multiple iterations (auto-retry on failures)
+uv run -m tests.test_runner --max-iterations 3
+```
+
+**Test Scenarios** are defined in `tests/scenarios.json`. Each scenario specifies:
+- `query`: The test input
+- `expected_behavior`: Checks to validate (tool_used, contains, no_refusal, etc.)
+- `tags`: Categories for filtering
+
+### Testing Workflow (MANDATORY)
+
+**CRITICAL: Run tests during every implementation cycle.**
+
+#### During Implementation
+1. **Before coding**: Run relevant tests to establish baseline
+   ```bash
+   uv run -m tests.test_runner --tags <relevant-tags>
+   ```
+
+2. **After each significant change**: Re-run tests
+   ```bash
+   uv run -m tests.test_runner
+   ```
+
+3. **On test failure**: 
+   - Analyze the failure report in `tmp/test_results/`
+   - Fix the issue
+   - Re-run tests
+   - Iterate until all tests pass
+
+4. **Before committing**: All relevant tests MUST pass
+   ```bash
+   uv run -m tests.test_runner  # Full test suite
+   ```
+
+#### Adding Tests for New Features
+When implementing a new feature:
+1. Add a test scenario to `tests/scenarios.json`
+2. Include appropriate tags (mcp, deliberation, ui, etc.)
+3. Define expected_behavior with relevant checks
+4. Run the new test to verify the feature works
+
+#### Test Tags Reference
+- `mcp` - MCP tool integration tests
+- `websearch` - Web search functionality
+- `calculator` - Calculator tool tests
+- `datetime` - Date/time tool tests
+- `geolocation` - Geolocation tool tests
+- `factual` - Simple factual queries (no deliberation)
+- `deliberation` - Full council deliberation tests
+- `chat` - Basic chat/greeting tests
+- `current-events` - Real-time data awareness tests
+- `regression` - Regression tests for known issues
+
+### Manual Testing
 
 Test LM Studio connectivity with a simple Python script:
 ```python

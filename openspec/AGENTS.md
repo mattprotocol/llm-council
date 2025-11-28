@@ -1,10 +1,13 @@
 # OpenSpec Instructions
 
 **⚠️ VERSIONING REQUIRED: Before implementing ANY OpenSpec proposal:**
-1. Check current version: `git branch -a | grep "v[0-9]"`
-2. Create new version branch: `git checkout -b v<next-version>`
-3. Then implement changes on that branch
-4. See `/AGENTS.md` "Versioning Process" section for full details.
+1. Find HIGHEST version: `git branch -a | grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" | sort -V | tail -1`
+2. Increment from highest: feature → v0.X+1.0, fix → v0.X.Y+1
+3. Create new version branch: `git checkout -b v<next-version>`
+4. Then implement changes on that branch
+5. See `/AGENTS.md` "Versioning Process" section for full details.
+
+**⚠️ NEVER create a version lower than the highest existing version!**
 
 Instructions for AI coding assistants using OpenSpec for spec-driven development.
 
@@ -59,11 +62,15 @@ Track these steps as TODOs and complete them one by one.
 2. **Read proposal.md** - Understand what's being built
 3. **Read design.md** (if exists) - Review technical decisions
 4. **Read tasks.md** - Get implementation checklist
-5. **Implement tasks sequentially** - Complete in order
-6. **Confirm completion** - Ensure every item in `tasks.md` is finished before updating statuses
-7. **Update checklist** - After all work is done, set every task to `- [x]` so the list reflects reality
-8. **Commit and push** - `git add -A && git commit -m "v<version>: <description>" && git push -u origin v<version>`
-9. **Approval gate** - Do not merge to master until the proposal is reviewed and approved
+5. **Run baseline tests** - `uv run -m tests.test_runner --tags <relevant-tags>` to establish baseline
+6. **Implement tasks sequentially** - Complete in order
+7. **Run tests after each change** - `uv run -m tests.test_runner` and fix failures before proceeding
+8. **Iterate on failures** - Analyze `tmp/test_results/`, fix issues, re-test until passing
+9. **Confirm completion** - Ensure every item in `tasks.md` is finished before updating statuses
+10. **Final test run** - All tests MUST pass before committing: `uv run -m tests.test_runner`
+11. **Update checklist** - After all work is done, set every task to `- [x]` so the list reflects reality
+12. **Commit and push** - `git add -A && git commit -m "v<version>: <description>" && git push -u origin v<version>`
+13. **Approval gate** - Do not merge to master until the proposal is reviewed and approved
 
 ### Stage 3: Archiving Changes
 After deployment, create separate PR to:
