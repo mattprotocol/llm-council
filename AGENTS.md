@@ -333,18 +333,39 @@ uv run -m tests.test_runner --max-iterations 3
    uv run -m tests.test_runner
    ```
 
-3. **On test failure**: 
-   - Analyze the failure report in `tmp/test_results/`
-   - Fix the issue
-   - Re-run tests
-   - Iterate until all tests pass
+3. **CRITICAL: After EVERY test run, verify test results were generated:**
+   ```bash
+   # Check that a new result file was created in tmp/test_results/
+   ls -la tmp/test_results/ | tail -5
+   ```
+   - **If no new file**: The test did not complete - investigate why
+   - **If file exists**: Open and evaluate the result JSON
 
-4. **Before committing**: All relevant tests MUST pass
+4. **Evaluate test results** (check the JSON file):
+   - Look at `"passed"` and `"failed"` counts at the top level
+   - If `"failed" > 0`: Test was UNSUCCESSFUL
+   - For each failed test, check:
+     - `"name"`: Which scenario failed
+     - `"actual"`: What the system returned
+     - `"expected"`: What was expected
+     - `"details.checks"`: Which specific checks failed (second element is `false`)
+   - Example of failed check: `["contains", false, ["expected_term"]]`
+
+5. **On test failure**: 
+   - Analyze the failure report in `tmp/test_results/`
+   - Identify the root cause from the `"actual"` response
+   - Fix the issue in the code
+   - Re-run tests
+   - Verify new test result file was generated
+   - Iterate until `"failed": 0` in test results
+
+6. **Before committing**: All relevant tests MUST pass
    ```bash
    uv run -m tests.test_runner  # Full test suite
+   # Then verify: tmp/test_results/ has new file with "failed": 0
    ```
 
-5. **After ALL tests pass**: Commit, merge to master, and push IMMEDIATELY
+7. **After ALL tests pass**: Commit, merge to master, and push IMMEDIATELY
    ```bash
    git add -A
    git commit -m "v<version>: <description>"
@@ -361,6 +382,30 @@ When implementing a new feature:
 2. Include appropriate tags (mcp, deliberation, ui, etc.)
 3. Define expected_behavior with relevant checks
 4. Run the new test to verify the feature works
+
+#### Test Result JSON Structure Quick Reference
+```json
+{
+  "timestamp": "YYYYMMDD_HHMMSS",
+  "passed": 7,           // ← Must equal "total" for success
+  "failed": 0,           // ← Must be 0 for success
+  "total": 7,
+  "results": [
+    {
+      "name": "test_name",
+      "passed": true,    // ← Individual test status
+      "expected": {...}, // ← What we checked for
+      "actual": "...",   // ← What the system returned
+      "details": {
+        "checks": [
+          ["check_type", true, "context"],  // ← true = passed
+          ["check_type", false, "context"]  // ← false = FAILED
+        ]
+      }
+    }
+  ]
+}
+```
 
 #### Test Tags Reference
 - `mcp` - MCP tool integration tests
