@@ -5,9 +5,25 @@
 echo "Starting LLM Council..."
 echo ""
 
+cd "$(dirname "$0")"  # Ensure we're in the project root
+
+# Function to kill process on a given port
+kill_port() {
+    local port=$1
+    local pid=$(lsof -ti :$port 2>/dev/null)
+    if [ -n "$pid" ]; then
+        echo "⚠️  Port $port is in use by PID $pid, killing..."
+        kill -9 $pid 2>/dev/null
+        sleep 1
+    fi
+}
+
+# Clean up ports before starting
+kill_port 8001
+kill_port 5173
+
 # Start backend with uvicorn (suppress INFO-level websocket connection logs)
 echo "Starting backend on http://localhost:8001..."
-cd "$(dirname "$0")"  # Ensure we're in the project root
 uv run uvicorn backend.main:app --host 0.0.0.0 --port 8001 --log-level warning &
 BACKEND_PID=$!
 
