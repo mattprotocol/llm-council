@@ -14,8 +14,8 @@ llm:
   max_tokens: 16384
   providers:
     openai_generic:
-      api_key: "not-needed"
-      api_url: "http://192.168.1.111:1234/v1"
+      api_key: "lms"
+      api_url: "http://192.168.1.111:11434/v1"
 
 # Embedder Configuration - Using OpenAI for embeddings
 embedder:
