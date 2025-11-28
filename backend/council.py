@@ -202,8 +202,9 @@ async def chairman_direct_response(
     # Build prompt and system message based on whether tools were used
     system_message = None
     has_tool_data = tool_result and tool_result.get('success')
+    tool_failed = _tool_output_failed(tool_result)
     
-    if has_tool_data:
+    if has_tool_data and not tool_failed:
         tool_context = format_tool_result_for_prompt(tool_result)
         
         # Increasingly strong system message based on retry count
@@ -246,6 +247,22 @@ The tool output below is REAL. Use it."""
 Question: {user_query}
 
 Present the tool output as current facts. Be concise but complete."""
+    elif has_tool_data and tool_failed:
+        # Tool was called but failed - be honest about it
+        tool_context = format_tool_result_for_prompt(tool_result)
+        system_message = f"""Current date: {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
+Current time: {current_time.strftime('%H:%M:%S')}
+
+A tool was called to get real-time information but it FAILED.
+You MUST be honest about this failure. Do NOT make up or fabricate data.
+Tell the user what happened and suggest alternatives."""
+        
+        prompt = f"""{tool_context}
+
+Question: {user_query}
+
+The tool failed to retrieve the requested information. Be honest about this failure.
+Do NOT fabricate or make up data. Explain what went wrong and suggest the user try again later."""
     else:
         prompt = f"""Answer this question directly and concisely.
 
@@ -579,6 +596,33 @@ def _contains_refusal(text: str) -> bool:
     return any(phrase in text_lower for phrase in REFUSAL_PHRASES)
 
 
+def _tool_output_failed(tool_result: Optional[Dict[str, Any]]) -> bool:
+    """
+    Check if tool output content indicates a failure.
+    Returns True if the tool's internal result shows an error.
+    """
+    if not tool_result:
+        return True
+    if not tool_result.get('success'):
+        return True
+    
+    output = tool_result.get('output', {})
+    if isinstance(output, dict) and 'content' in output:
+        content = output['content']
+        if isinstance(content, list) and len(content) > 0:
+            text_content = content[0].get('text', '')
+            try:
+                result_data = json.loads(text_content)
+                if isinstance(result_data, dict):
+                    if result_data.get('success') is False:
+                        return True
+                    if 'error' in result_data and result_data.get('error'):
+                        return True
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return False
+
+
 def _requires_websearch(query: str) -> bool:
     """Check if query contains keywords that strongly suggest websearch is needed."""
     query_lower = query.lower()
@@ -805,12 +849,19 @@ def format_tool_result_for_prompt(tool_result: Dict[str, Any]) -> str:
     output = tool_result.get('output', {})
     
     # Extract the actual result from MCP response
+    tool_failed = False
+    error_message = ""
     if isinstance(output, dict) and 'content' in output:
         content = output['content']
         if isinstance(content, list) and len(content) > 0:
             text_content = content[0].get('text', '')
             try:
                 result_data = json.loads(text_content)
+                # Check if the tool's internal result indicates failure
+                if isinstance(result_data, dict):
+                    if result_data.get('success') is False or 'error' in result_data:
+                        tool_failed = True
+                        error_message = result_data.get('error', 'Unknown error')
                 output = result_data
             except:
                 output = text_content
@@ -818,6 +869,21 @@ def format_tool_result_for_prompt(tool_result: Dict[str, Any]) -> str:
     # Include timestamp to emphasize this is live data
     current_time = datetime.now()
     timestamp = current_time.strftime('%Y-%m-%d %H:%M:%S')
+    
+    if tool_failed:
+        return f"""
+══════════════════════════════════════════════════════════════
+⚠️ TOOL EXECUTION FAILED AT: {timestamp}
+══════════════════════════════════════════════════════════════
+🔧 Tool: {server}.{tool}
+📥 Query: {json.dumps(input_args)}
+❌ ERROR: {error_message}
+══════════════════════════════════════════════════════════════
+⚠️ THE TOOL FAILED - YOU MUST REPORT THIS HONESTLY!
+DO NOT make up or fabricate data. Tell the user the tool failed
+and offer alternatives (retry later, try different query, etc.)
+══════════════════════════════════════════════════════════════
+"""
     
     return f"""
 ══════════════════════════════════════════════════════════════
@@ -1449,14 +1515,17 @@ async def stage1_collect_responses_streaming(
     tool_result = await check_and_execute_tools(user_query, on_event)
     print(f"[DEBUG] Tool result: {tool_result}")
     tool_context = ""
+    tool_failed = _tool_output_failed(tool_result)
+    
     if tool_result and tool_result.get('success'):
         tool_context = format_tool_result_for_prompt(tool_result)
-        print(f"[DEBUG] Sending tool_result event")
+        print(f"[DEBUG] Sending tool_result event (failed={tool_failed})")
         on_event("tool_result", {
             "tool": f"{tool_result.get('server')}.{tool_result.get('tool')}",
             "input": tool_result.get('input'),
             "output": tool_result.get('output'),
-            "formatted": tool_context
+            "formatted": tool_context,
+            "tool_failed": tool_failed
         })
     
     # Get response config for max_tokens
@@ -1468,10 +1537,10 @@ async def stage1_collect_responses_streaming(
     
     # Include tool result in prompt if available
     system_message = None
-    if tool_context:
-        # Get current date/time to provide context
-        current_time = datetime.now()
-        
+    current_time = datetime.now()
+    
+    if tool_context and not tool_failed:
+        # Tool succeeded - use normal prompts
         # Stronger system message that explicitly forbids refusal
         system_message = f"""⚠️ MANDATORY INSTRUCTIONS - VIOLATION WILL BE FLAGGED:
 
@@ -1508,6 +1577,21 @@ Present the tool output as current facts. Be concise but complete."""
 Question: {user_query}
 
 Present the tool output as current facts. Incorporate the data fully into your response."""
+    elif tool_context and tool_failed:
+        # Tool was called but failed - be honest about it
+        system_message = f"""Current date: {current_time.strftime('%Y-%m-%d')} ({current_time.strftime('%A, %B %d, %Y')})
+Current time: {current_time.strftime('%H:%M:%S')}
+
+A tool was called to get real-time information but it FAILED.
+You MUST be honest about this failure. Do NOT make up or fabricate data.
+Tell the user what happened and suggest alternatives (try again later, etc.)."""
+        
+        prompt = f"""{tool_context}
+
+Question: {user_query}
+
+The tool failed to retrieve the requested information. Be honest about this failure.
+Do NOT fabricate or make up data. Explain what went wrong and suggest the user try again later."""
     elif response_style == "concise":
         prompt = f"""Answer the following question concisely and directly. Be clear and informative, but avoid unnecessary verbosity. Aim for 2-3 focused paragraphs.
 

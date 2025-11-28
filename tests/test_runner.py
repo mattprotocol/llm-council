@@ -74,6 +74,38 @@ class TestEvaluator:
         return expected_tool.lower() in used_tool.lower()
     
     @staticmethod
+    def evaluate_tool_success(result: Dict) -> bool:
+        """
+        Check if tool execution actually succeeded (not just was called).
+        Examines the tool output content for success indicators.
+        """
+        tool_result = result.get("tool_result", {})
+        if not tool_result:
+            return False
+        
+        # Check MCP-level success
+        if not tool_result.get("success"):
+            return False
+        
+        # Check content-level success (some tools return success:false in their output)
+        output = tool_result.get("output", {})
+        if isinstance(output, dict):
+            content = output.get("content", [])
+            if isinstance(content, list) and len(content) > 0:
+                text = content[0].get("text", "")
+                try:
+                    import json
+                    parsed = json.loads(text)
+                    if isinstance(parsed, dict) and parsed.get("success") is False:
+                        return False
+                    if isinstance(parsed, dict) and "error" in parsed:
+                        return False
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        
+        return True
+    
+    @staticmethod
     def evaluate_response_type(result: Dict, expected_type: str) -> bool:
         """Check if response type matches (direct, deliberation)."""
         return result.get("type", "").lower() == expected_type.lower()
@@ -380,6 +412,12 @@ class AutomatedTestRunner:
                 tool_check = self.evaluator.evaluate_tool_used(result, expected["tool_used"])
                 checks.append(("tool_used", tool_check, expected["tool_used"]))
                 passed = passed and tool_check
+                
+                # Also check tool success (tool must have succeeded, not just been called)
+                if expected.get("tool_success", True):  # Default to requiring success
+                    tool_success_check = self.evaluator.evaluate_tool_success(result)
+                    checks.append(("tool_success", tool_success_check, "tool output must succeed"))
+                    passed = passed and tool_success_check
             
             # Check response type
             if "response_type" in expected:
