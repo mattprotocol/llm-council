@@ -362,12 +362,12 @@ class AutomatedTestRunner:
             result = await self.client.send_message(scenario.query)
             duration_ms = (time.time() - start_time) * 1000
             
-            # Extract response content
+            # Extract response content (handle both direct and deliberation responses)
             response_content = ""
-            if "stage3" in result:
-                response_content = result["stage3"].get("response", "")
-            elif "direct_response" in result:
+            if "direct_response" in result and result["direct_response"]:
                 response_content = result["direct_response"].get("response", "")
+            elif "stage3" in result and result["stage3"]:
+                response_content = result["stage3"].get("response", "")
             
             # Evaluate against expected behavior
             checks = []

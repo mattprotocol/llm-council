@@ -225,8 +225,8 @@ async def get_conversation(conversation_id: str):
 @app.post("/api/conversations/{conversation_id}/message")
 async def send_message(conversation_id: str, request: SendMessageRequest):
     """
-    Send a message and run the 3-stage council process.
-    Returns the complete response with all stages.
+    Send a message with intelligent routing.
+    Simple/factual queries get direct responses; complex queries use council deliberation.
     """
     # Check if conversation exists
     conversation = storage.get_conversation(conversation_id)
@@ -240,12 +240,44 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # Add user message
     storage.add_user_message(conversation_id, request.content)
 
-    # If this is the first message and has generic title, trigger immediate title generation
+    # If this is the first message and has generic title, trigger title generation
     if is_first_message and current_title.startswith("Conversation "):
-        # Run in background without blocking the council process
         asyncio.create_task(title_service.generate_title(conversation_id, request.content))
 
-    # Run the 3-stage council process
+    # Classify the message to determine routing
+    classification = await classify_message(request.content)
+    msg_type = classification.get("type", "deliberation")
+    
+    # Check for tool usage
+    tool_result = None
+    if classification.get("requires_tools", False) or msg_type in ["factual", "chat"]:
+        tool_result = await check_and_execute_tools(request.content)
+    
+    # Route based on message type
+    if msg_type in ["factual", "chat"]:
+        # Direct response path - skip council deliberation
+        direct_result = await chairman_direct_response(request.content, tool_result)
+        
+        # Save as simplified assistant message
+        storage.add_assistant_message(
+            conversation_id,
+            [],  # No stage1
+            [],  # No stage2
+            direct_result
+        )
+        
+        return {
+            "type": "direct",
+            "direct_response": direct_result,
+            "tool_result": tool_result,
+            "classification": classification,
+            "stage1": [],
+            "stage2": [],
+            "stage3": direct_result,
+            "metadata": {"response_type": "direct"}
+        }
+    
+    # Deliberation path - full 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
         request.content
     )
@@ -258,11 +290,13 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         stage3_result
     )
 
-    # Return the complete response with metadata
     return {
+        "type": "deliberation",
         "stage1": stage1_results,
         "stage2": stage2_results,
         "stage3": stage3_result,
+        "tool_result": tool_result,
+        "classification": classification,
         "metadata": metadata
     }
 

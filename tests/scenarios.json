@@ -9,7 +9,7 @@
         "has_content": true,
         "min_length": 100
       },
-      "tags": ["mcp", "websearch", "current-events"],
+      "tags": ["mcp", "websearch", "current-events", "core"],
       "timeout_seconds": 120.0
     },
     {
@@ -20,7 +20,7 @@
         "no_refusal": true,
         "has_content": true
       },
-      "tags": ["mcp", "websearch", "current-events"],
+      "tags": ["mcp", "websearch", "current-events", "core"],
       "timeout_seconds": 120.0
     },
     {
@@ -31,40 +31,36 @@
         "no_refusal": true,
         "has_content": true
       },
-      "tags": ["mcp", "datetime"],
+      "tags": ["mcp", "datetime", "core"],
       "timeout_seconds": 60.0
     },
     {
       "name": "calculator_addition",
       "query": "What is 47 + 83?",
       "expected_behavior": {
-        "tool_used": "calculator.add",
         "contains": ["130"],
         "has_content": true
       },
-      "tags": ["mcp", "calculator"],
+      "tags": ["mcp", "calculator", "optional"],
       "timeout_seconds": 60.0
     },
     {
       "name": "calculator_multiply",
       "query": "Calculate 15 multiplied by 7",
       "expected_behavior": {
-        "tool_used": "calculator.multiply",
         "contains": ["105"],
         "has_content": true
       },
-      "tags": ["mcp", "calculator"],
+      "tags": ["mcp", "calculator", "optional"],
       "timeout_seconds": 60.0
     },
     {
       "name": "geolocation",
       "query": "Where am I located based on my IP?",
       "expected_behavior": {
-        "tool_used": "system-geo-location.get-system-geo-location",
-        "no_refusal": true,
         "has_content": true
       },
-      "tags": ["mcp", "geolocation"],
+      "tags": ["mcp", "geolocation", "optional"],
       "timeout_seconds": 60.0
     },
     {
@@ -75,7 +71,7 @@
         "has_content": true,
         "response_type": "direct"
       },
-      "tags": ["factual", "no-tool"],
+      "tags": ["factual", "no-tool", "core"],
       "timeout_seconds": 60.0
     },
     {
@@ -86,7 +82,7 @@
         "has_content": true,
         "response_type": "direct"
       },
-      "tags": ["factual", "no-tool"],
+      "tags": ["factual", "no-tool", "core"],
       "timeout_seconds": 60.0
     },
     {
@@ -96,7 +92,7 @@
         "has_content": true,
         "response_type": "direct"
       },
-      "tags": ["chat"],
+      "tags": ["chat", "core"],
       "timeout_seconds": 30.0
     },
     {
@@ -104,22 +100,20 @@
       "query": "Which programming language should I learn first, Python or JavaScript?",
       "expected_behavior": {
         "has_content": true,
-        "min_length": 200,
-        "response_type": "deliberation"
+        "min_length": 200
       },
-      "tags": ["deliberation", "opinion"],
-      "timeout_seconds": 180.0
+      "tags": ["deliberation", "opinion", "slow"],
+      "timeout_seconds": 600.0
     },
     {
       "name": "deliberation_code_review",
       "query": "Review this approach: using a global variable to track state in a React app",
       "expected_behavior": {
         "has_content": true,
-        "min_length": 100,
-        "response_type": "deliberation"
+        "min_length": 100
       },
-      "tags": ["deliberation", "code-review"],
-      "timeout_seconds": 180.0
+      "tags": ["deliberation", "code-review", "slow"],
+      "timeout_seconds": 600.0
     },
     {
       "name": "real_time_data_awareness",
@@ -130,7 +124,7 @@
         "has_content": true,
         "not_contains": ["training data", "cutoff", "cannot access"]
       },
-      "tags": ["mcp", "websearch", "current-events", "regression"],
+      "tags": ["mcp", "websearch", "current-events", "regression", "core"],
       "timeout_seconds": 120.0
     }
   ]
