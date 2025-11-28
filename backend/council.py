@@ -3,7 +3,7 @@
 import time
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple, AsyncGenerator, Callable, Optional
 from .lmstudio import query_models_parallel, query_model_with_retry, query_model_streaming
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, FORMATTER_MODEL
@@ -726,8 +726,21 @@ async def _phase2_generate_tool_call(
     Returns:
         Dict with 'tool', 'arguments' or None on failure
     """
+    # Include current date context for time-sensitive queries
+    current_time = datetime.now()
+    # Calculate week start (Monday) and end (Sunday)
+    week_start = current_time - timedelta(days=current_time.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    date_context = f"""CURRENT DATE CONTEXT (use for time-sensitive queries):
+- Today: {current_time.strftime('%A, %B %d, %Y')}
+- This week: {week_start.strftime('%B %d')} - {week_end.strftime('%B %d, %Y')}
+- This month: {current_time.strftime('%B %Y')}
+"""
+    
     execution_prompt = f"""You need to generate a tool call to answer a user query.
 
+{date_context}
 {detailed_tool_info}
 
 USER QUERY: {user_query}
@@ -745,9 +758,13 @@ Important:
 - For math operations, extract the numbers from the query
 - For web searches: 
   * Add "news" or "latest" to get actual articles instead of homepages
-  * Include the current month/year for time-sensitive queries
-  * Example: "top news headlines" → "latest news headlines november 2025"
-  * Example: "current weather" → "weather forecast today"
+  * For time-sensitive queries, be SPECIFIC about the time frame:
+    - "this week" → include specific date range (e.g., "November 24-28 2025")
+    - "today" → include today's exact date
+    - "this month" → include month and year
+  * Example: "what happened this week" → "major events November 24-28 2025"
+  * Example: "top news headlines" → "latest news headlines November 28 2025"
+  * Example: "current weather" → "weather forecast today November 28"
 
 Output ONLY the JSON object. No other text."""
 
