@@ -24,20 +24,38 @@ export default function Sidebar({
   const serverOverlayRef = useRef(null);
   const overlayCloseTimerRef = useRef(null);
 
+  // Track if cursor is within any overlay group element
+  const isInOverlayGroupRef = useRef(false);
+  const hoverCheckTimerRef = useRef(null);
+
   // Overlay group hover handlers - 2s delay before closing
   const handleOverlayGroupEnter = () => {
+    isInOverlayGroupRef.current = true;
     if (overlayCloseTimerRef.current) {
       clearTimeout(overlayCloseTimerRef.current);
       overlayCloseTimerRef.current = null;
+    }
+    if (hoverCheckTimerRef.current) {
+      clearTimeout(hoverCheckTimerRef.current);
+      hoverCheckTimerRef.current = null;
     }
     setShowMcpOverlay(true);
   };
 
   const handleOverlayGroupLeave = () => {
-    overlayCloseTimerRef.current = setTimeout(() => {
-      setShowMcpOverlay(false);
-      setHoveredServer(null);
-    }, 2000);
+    isInOverlayGroupRef.current = false;
+    // Small delay to check if cursor moved to another element in the group
+    hoverCheckTimerRef.current = setTimeout(() => {
+      if (!isInOverlayGroupRef.current) {
+        // Cursor is truly outside all overlay group elements, start close timer
+        overlayCloseTimerRef.current = setTimeout(() => {
+          if (!isInOverlayGroupRef.current) {
+            setShowMcpOverlay(false);
+            setHoveredServer(null);
+          }
+        }, 2000);
+      }
+    }, 50); // 50ms grace period for cursor transition between elements
   };
 
   // Clean up overlay close timer on unmount
@@ -45,6 +63,9 @@ export default function Sidebar({
     return () => {
       if (overlayCloseTimerRef.current) {
         clearTimeout(overlayCloseTimerRef.current);
+      }
+      if (hoverCheckTimerRef.current) {
+        clearTimeout(hoverCheckTimerRef.current);
       }
     };
   }, []);
