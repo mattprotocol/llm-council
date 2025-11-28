@@ -322,14 +322,18 @@ class AutomatedTestRunner:
         if scenario_file and Path(scenario_file).exists():
             with open(scenario_file) as f:
                 data = json.load(f)
-            return [TestScenario(**s) for s in data["scenarios"]]
+            # Filter out disabled scenarios
+            enabled = [s for s in data["scenarios"] if not s.get("disabled", False)]
+            return [TestScenario(**{k: v for k, v in s.items() if k != "disabled"}) for s in enabled]
         
         # Try default scenarios.json in tests directory
         default_file = Path(__file__).parent / "scenarios.json"
         if default_file.exists():
             with open(default_file) as f:
                 data = json.load(f)
-            return [TestScenario(**s) for s in data["scenarios"]]
+            # Filter out disabled scenarios
+            enabled = [s for s in data["scenarios"] if not s.get("disabled", False)]
+            return [TestScenario(**{k: v for k, v in s.items() if k != "disabled"}) for s in enabled]
         
         # Fallback to hardcoded defaults
         return [

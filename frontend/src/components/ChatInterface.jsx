@@ -135,6 +135,26 @@ export default function ChatInterface({
                     </div>
                   )}
 
+                  {/* Tool result card - shown for both direct and deliberation responses */}
+                  {msg.toolResult && (
+                    <div className="tool-result-card">
+                      <div className="tool-result-header">
+                        <span className="tool-icon">🔧</span>
+                        <span className="tool-name">MCP Tool: {msg.toolResult.tool}</span>
+                      </div>
+                      <div className="tool-result-body">
+                        <div className="tool-io">
+                          <span className="tool-label">Input:</span>
+                          <code className="tool-value">{JSON.stringify(msg.toolResult.input)}</code>
+                        </div>
+                        <div className="tool-io">
+                          <span className="tool-label">Output:</span>
+                          <code className="tool-value">{typeof msg.toolResult.output === 'string' ? msg.toolResult.output : JSON.stringify(msg.toolResult.output)}</code>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* For direct responses, skip Stage 1 and Stage 2 */}
                   {msg.responseType !== 'direct' && (
                     <>
@@ -145,11 +165,10 @@ export default function ChatInterface({
                           <span>Running Stage 1: Collecting individual responses...</span>
                         </div>
                       )}
-                      {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0 || msg.toolResult) && (
+                      {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
                         <Stage1 
                           responses={msg.stage1} 
                           streaming={msg.streaming?.stage1}
-                          toolResult={msg.toolResult}
                         />
                       )}
 

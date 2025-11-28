@@ -125,14 +125,22 @@ Classification rules:
 - "chat": Greetings, acknowledgments, small talk, simple yes/no questions about the AI itself
 - "deliberation": Opinions, comparisons, feedback requests, creative work, complex analysis, subjective questions, anything requiring multiple perspectives
 
+requires_tools rules:
+- TRUE if query needs: current date/time, current weather, real-time data, web search, IP/location lookup, calculations, external APIs
+- FALSE if answer can come from general knowledge without real-time data
+
 Examples:
-- "What is 3+5?" → factual
-- "Hello, how are you?" → chat  
-- "Which is better, Python or JavaScript?" → deliberation
-- "Review my code" → deliberation
-- "What's the capital of France?" → factual
-- "Can you help me?" → chat
-- "What do you think about AI?" → deliberation"""
+- "What is 3+5?" → factual, requires_tools: true (calculator)
+- "Hello, how are you?" → chat, requires_tools: false
+- "Which is better, Python or JavaScript?" → deliberation, requires_tools: false
+- "Review my code" → deliberation, requires_tools: false
+- "What's the capital of France?" → factual, requires_tools: false (general knowledge)
+- "Can you help me?" → chat, requires_tools: false
+- "What do you think about AI?" → deliberation, requires_tools: false
+- "What time is it?" → factual, requires_tools: true (current time)
+- "What's the current weather?" → factual, requires_tools: true (real-time data)
+- "Where am I located?" → factual, requires_tools: true (IP/location lookup)
+- "What's in the news today?" → factual, requires_tools: true (web search)"""
 
     messages = [{"role": "user", "content": classification_prompt.format(query=user_query)}]
     tool_model = get_tool_calling_model()
@@ -241,9 +249,22 @@ FACT 3: A tool WAS EXECUTED and returned REAL DATA below
 
 The tool output below is REAL. Use it."""
         
+        # Add specific guidance for websearch results
+        tool_type = tool_result.get('tool', '')
+        if 'search' in tool_type.lower():
+            interpretation_guide = """
+IMPORTANT: For web search results:
+- The "snippet" field contains ACTUAL NEWS/CONTENT from each source
+- The "title" field is often just the website name, NOT the actual headline
+- EXTRACT and PRESENT the real information FROM THE SNIPPETS
+- Look for actual events, names, dates, and news items in the snippets
+- Do NOT just list website names - that's not useful to the user"""
+        else:
+            interpretation_guide = ""
+        
         prompt = f"""TOOL OUTPUT (LIVE DATA - USE THIS):
 {tool_context}
-
+{interpretation_guide}
 Question: {user_query}
 
 Present the tool output as current facts. Be concise but complete."""
@@ -724,7 +745,11 @@ Important:
 - Use the exact parameter names from the tool definition
 - Provide appropriate values based on the user's query
 - For math operations, extract the numbers from the query
-- For web searches, formulate a good search query
+- For web searches: 
+  * Add "news" or "latest" to get actual articles instead of homepages
+  * Include the current month/year for time-sensitive queries
+  * Example: "top news headlines" → "latest news headlines november 2025"
+  * Example: "current weather" → "weather forecast today"
 
 Output ONLY the JSON object. No other text."""
 

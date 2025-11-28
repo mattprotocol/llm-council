@@ -2,7 +2,7 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './Stage1.css';
 
-export default function Stage1({ responses, streaming, toolResult }) {
+export default function Stage1({ responses, streaming }) {
   const [activeTab, setActiveTab] = useState(0);
 
   // Get models from either completed responses or streaming state
@@ -10,7 +10,7 @@ export default function Stage1({ responses, streaming, toolResult }) {
     ? responses.map(r => r.model)
     : streaming ? Object.keys(streaming) : [];
 
-  if (models.length === 0 && !toolResult) {
+  if (models.length === 0) {
     return null;
   }
 
@@ -36,26 +36,6 @@ export default function Stage1({ responses, streaming, toolResult }) {
   return (
     <div className="stage stage1">
       <h3 className="stage-title">Stage 1: Individual Responses</h3>
-
-      {/* Show tool result if available */}
-      {toolResult && (
-        <div className="tool-result-card">
-          <div className="tool-result-header">
-            <span className="tool-icon">🔧</span>
-            <span className="tool-name">MCP Tool: {toolResult.tool}</span>
-          </div>
-          <div className="tool-result-body">
-            <div className="tool-io">
-              <span className="tool-label">Input:</span>
-              <code className="tool-value">{JSON.stringify(toolResult.input)}</code>
-            </div>
-            <div className="tool-io">
-              <span className="tool-label">Output:</span>
-              <code className="tool-value">{JSON.stringify(toolResult.output)}</code>
-            </div>
-          </div>
-        </div>
-      )}
 
       {models.length > 0 && (
         <>

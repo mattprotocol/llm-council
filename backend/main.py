@@ -459,6 +459,20 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                 while not events_queue.empty():
                     event_type, data = events_queue.get_nowait()
                     yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+                
+                # Send tool_result event for frontend display if tool was used successfully
+                if tool_result and tool_result.get('success'):
+                    from .council import format_tool_result_for_prompt
+                    tool_context = format_tool_result_for_prompt(tool_result)
+                    tool_name = f"{tool_result.get('server')}.{tool_result.get('tool')}"
+                    tool_event = {
+                        'type': 'tool_result',
+                        'tool': tool_name,
+                        'input': tool_result.get('input'),
+                        'output': tool_result.get('output'),
+                        'formatted': tool_context
+                    }
+                    yield f"data: {json.dumps(tool_event)}\n\n"
             
             # ===== ROUTING DECISION =====
             msg_type = classification.get("type", "deliberation")

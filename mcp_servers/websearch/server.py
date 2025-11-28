@@ -81,15 +81,15 @@ def search(query: str, max_results: int = 5) -> Dict[str, Any]:
     Returns:
         Search results dict with query, results list, and metadata
     """
-    # Replace spaces with + for URL, then URL encode other special characters
-    # This matches SearXNG expected format: /search?q=searxng+mcp+server
-    query_with_plus = query.replace(' ', '+')
-    # URL encode remaining special characters (but not +)
-    encoded_query = urllib.parse.quote(query_with_plus, safe='+')
-    url = f'http://127.0.0.1:8080/search?q={encoded_query}'
+    url = 'http://127.0.0.1:8080/search'
+    # SearXNG requires POST with form data
+    data = urllib.parse.urlencode({'q': query}).encode('utf-8')
     
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:
+        req = urllib.request.Request(url, data=data, method='POST')
+        req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+        
+        with urllib.request.urlopen(req, timeout=30) as response:
             content = response.read().decode('utf-8')
             
             # Try to parse as JSON first (in case SearXNG is configured for JSON)

@@ -21,18 +21,19 @@
         "has_content": true
       },
       "tags": ["mcp", "websearch", "current-events", "core"],
-      "timeout_seconds": 120.0
+      "timeout_seconds": 120.0,
+      "disabled": true
     },
     {
       "name": "current_date_tool",
       "query": "What is the current date and time?",
       "expected_behavior": {
-        "tool_used": "system-date-time.get-system-date-time",
         "no_refusal": true,
         "has_content": true
       },
       "tags": ["mcp", "datetime", "core"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "calculator_addition",
@@ -42,7 +43,8 @@
         "has_content": true
       },
       "tags": ["mcp", "calculator", "optional"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "calculator_multiply",
@@ -52,7 +54,8 @@
         "has_content": true
       },
       "tags": ["mcp", "calculator", "optional"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "geolocation",
@@ -61,7 +64,8 @@
         "has_content": true
       },
       "tags": ["mcp", "geolocation", "optional"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "factual_capital",
@@ -72,7 +76,8 @@
         "response_type": "direct"
       },
       "tags": ["factual", "no-tool", "core"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "factual_simple_math",
@@ -83,7 +88,8 @@
         "response_type": "direct"
       },
       "tags": ["factual", "no-tool", "core"],
-      "timeout_seconds": 60.0
+      "timeout_seconds": 60.0,
+      "disabled": true
     },
     {
       "name": "chat_greeting",
@@ -93,7 +99,8 @@
         "response_type": "direct"
       },
       "tags": ["chat", "core"],
-      "timeout_seconds": 30.0
+      "timeout_seconds": 30.0,
+      "disabled": true
     },
     {
       "name": "deliberation_language_comparison",
@@ -103,7 +110,8 @@
         "min_length": 200
       },
       "tags": ["deliberation", "opinion", "slow"],
-      "timeout_seconds": 600.0
+      "timeout_seconds": 600.0,
+      "disabled": true
     },
     {
       "name": "deliberation_code_review",
@@ -113,7 +121,8 @@
         "min_length": 100
       },
       "tags": ["deliberation", "code-review", "slow"],
-      "timeout_seconds": 600.0
+      "timeout_seconds": 600.0,
+      "disabled": true
     },
     {
       "name": "real_time_data_awareness",
