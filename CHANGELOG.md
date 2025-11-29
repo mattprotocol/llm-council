@@ -4,6 +4,22 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.29.5
+**Branch:** `v0.29.5`  
+**Completed:** 2025-11-29 16:52 UTC | 2025-11-29 08:52 PST
+
+**Fixes:**
+- **Conversation Load Flicker**: Fixed brief "Welcome" screen showing on app start
+  - When restoring last conversation, showed empty welcome message briefly before loading
+  - Now shows "Loading conversation..." spinner while conversation data is being fetched
+  - Prevents confusing flicker where conversation appears then disappears
+
+**Changes:**
+- `frontend/src/App.jsx` - Pass `conversationId` prop to ChatInterface
+- `frontend/src/components/ChatInterface.jsx` - Add loading state when conversation is being loaded
+
+---
+
 ### v0.29.4
 **Branch:** `v0.29.4`  
 **Completed:** 2025-11-29 16:45 UTC | 2025-11-29 08:45 PST

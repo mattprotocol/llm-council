@@ -1246,6 +1246,7 @@ function App() {
       />
       <ChatInterface
         conversation={currentConversation}
+        conversationId={currentConversationId}
         onSendMessage={handleSendMessage}
         onRedoMessage={handleRedoMessage}
         onEditMessage={handleEditMessage}

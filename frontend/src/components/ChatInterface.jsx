@@ -8,6 +8,7 @@ import './ChatInterface.css';
 
 export default function ChatInterface({
   conversation,
+  conversationId,
   onSendMessage,
   onRedoMessage,
   onEditMessage,
@@ -110,6 +111,18 @@ export default function ChatInterface({
     setEditingIndex(null);
     setInput('');
   };
+
+  // Show loading state when conversation is being loaded
+  if (!conversation && conversationId) {
+    return (
+      <div className="chat-interface">
+        <div className="empty-state">
+          <div className="spinner"></div>
+          <p>Loading conversation...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!conversation) {
     return (
