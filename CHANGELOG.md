@@ -4,6 +4,27 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.22.5
+**Branch:** `v0.22.5`  
+**Completed:** 2025-11-29 06:22 UTC | 2025-11-28 22:22 PST
+
+**Fixes:**
+- **Classification Badge Shows Immediately**: Badge now shows "🔍 Classifying..." as soon as message is sent
+  - Initialize `classification: { status: 'classifying' }` when creating assistant message
+  - Applies to both `handleSendMessage` and `runCouncilForMessage`
+
+- **News/Current Events Override**: Added deterministic override for news queries
+  - Detects queries with news indicators (this week, today, latest, news, events, headlines)
+  - Combined with time-sensitive words (week, today, 2024, 2025, current, recent)
+  - Forces `needs_external_data: true` and `data_types_needed: ["news"]`
+  - Ensures websearch is used for "What major events happened this week?"
+
+**Changes:**
+- `frontend/src/App.jsx` - Initialize classification status on message creation
+- `backend/council.py` - Add news/current events override in expectation analysis
+
+---
+
 ### v0.22.4
 **Branch:** `v0.22.4`  
 **Completed:** 2025-11-29 06:10 UTC | 2025-11-28 22:10 PST

@@ -655,6 +655,21 @@ JSON response:"""
                     result['needs_external_data'] = True
                     result['data_types_needed'] = ['calculation']
             
+            # Override for news/current events queries
+            news_indicators = ['this week', 'today', 'latest', 'recent', 'current', 'news', 
+                              'what happened', 'what\'s happening', 'events', 'headlines']
+            time_sensitive_words = ['week', 'today', 'yesterday', 'month', 'year', 'now', 
+                                   '2024', '2025', 'current', 'recent', 'latest']
+            
+            has_news_indicator = any(indicator in query_lower for indicator in news_indicators)
+            has_time_sensitive = any(word in query_lower for word in time_sensitive_words)
+            
+            if has_news_indicator and has_time_sensitive:
+                if not result.get('needs_external_data', False) or 'news' not in result.get('data_types_needed', []):
+                    print(f"[Expectations] Override: News/current events query detected, forcing websearch")
+                    result['needs_external_data'] = True
+                    result['data_types_needed'] = ['news']
+            
             print(f"[Expectations] {result.get('expectations', [])}, needs_external: {result.get('needs_external_data')}, data_types: {result.get('data_types_needed', [])}")
             return result
         return None

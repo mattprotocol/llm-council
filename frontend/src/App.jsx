@@ -179,6 +179,7 @@ function App() {
         stage2: null,
         stage3: null,
         metadata: null,
+        classification: { status: 'classifying' },  // Start with classifying status
         loading: {
           stage1: false,
           stage2: false,
@@ -676,6 +677,7 @@ function App() {
       stage2: null,
       stage3: null,
       metadata: null,
+      classification: { status: 'classifying' },  // Start with classifying status
       loading: {
         stage1: false,
         stage2: false,
