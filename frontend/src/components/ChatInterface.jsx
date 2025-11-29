@@ -23,9 +23,12 @@ export default function ChatInterface({
 
   // Find first and last user messages
   const { firstUserMessage, lastUserMessage, firstUserIndex, lastUserIndex } = useMemo(() => {
-    if (!conversation?.messages?.length) return {};
+    // Defensive check for conversation and messages array
+    if (!conversation) return {};
+    const messages = conversation.messages;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) return {};
     
-    const userMessages = conversation.messages
+    const userMessages = messages
       .map((msg, idx) => ({ msg, idx }))
       .filter(({ msg }) => msg.role === 'user');
     
@@ -40,7 +43,7 @@ export default function ChatInterface({
       firstUserIndex: first.idx,
       lastUserIndex: last.idx,
     };
-  }, [conversation?.messages]);
+  }, [conversation]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,6 +138,9 @@ export default function ChatInterface({
     );
   }
 
+  // Ensure conversation has messages array (defensive check)
+  const messages = conversation.messages || [];
+
   return (
     <div className="chat-interface">
       {/* Pinned first user message header */}
@@ -169,7 +175,7 @@ export default function ChatInterface({
             </div>
           </div>
           <div className="pinned-content">
-            {firstUserMessage.content.length > 200 
+            {(firstUserMessage.content?.length || 0) > 200 
               ? firstUserMessage.content.substring(0, 200) + '...'
               : firstUserMessage.content}
           </div>
@@ -177,13 +183,13 @@ export default function ChatInterface({
       )}
 
       <div className="messages-container" ref={messagesContainerRef}>
-        {conversation.messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="empty-state">
             <h2>Start a conversation</h2>
             <p>Ask a question to consult the LLM Council</p>
           </div>
         ) : (
-          conversation.messages.map((msg, index) => (
+          messages.map((msg, index) => (
             <div 
               key={index} 
               className="message-group"
@@ -271,7 +277,7 @@ export default function ChatInterface({
                       outputText = output;
                     } else if (output?.content?.[0]?.text) {
                       outputText = output.content[0].text;
-                    } else {
+                    } else if (output !== undefined) {
                       outputText = JSON.stringify(output, null, 2);
                     }
                     
@@ -401,11 +407,11 @@ export default function ChatInterface({
           2. Last message is complete (has stage3 and not loading), OR
           3. Editing a message */}
       {(editingIndex !== null || 
-        conversation.messages.length === 0 || 
-        (conversation.messages.length > 0 && 
+        messages.length === 0 || 
+        (messages.length > 0 && 
          !isLoading &&
-         conversation.messages[conversation.messages.length - 1]?.role === 'assistant' &&
-         conversation.messages[conversation.messages.length - 1]?.stage3)) && (
+         messages[messages.length - 1]?.role === 'assistant' &&
+         messages[messages.length - 1]?.stage3)) && (
         <form className={`input-form ${editingIndex !== null ? 'editing' : ''}`} onSubmit={handleSubmit}>
           {editingIndex !== null && (
             <div className="editing-indicator">
@@ -417,7 +423,7 @@ export default function ChatInterface({
             className="message-input"
             placeholder={editingIndex !== null
               ? "Edit your message... (Shift+Enter for new line, Enter to submit)"
-              : conversation.messages.length === 0 
+              : messages.length === 0 
                 ? "Ask your question... (Shift+Enter for new line, Enter to send)"
                 : "Ask a follow-up question... (Shift+Enter for new line, Enter to send)"}
             value={input}

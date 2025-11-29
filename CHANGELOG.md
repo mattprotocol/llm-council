@@ -4,6 +4,25 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.29.10
+**Branch:** `v0.29.10`  
+**Completed:** 2025-11-29 17:49 UTC | 2025-11-29 09:49 PST
+
+**Fixes:**
+- **TypeError: Cannot read properties of undefined (reading 'length')**: Fixed crash when accessing undefined arrays
+  - Added defensive check for `firstUserMessage.content?.length` in ChatInterface.jsx
+  - Added null check for `output` before `JSON.stringify` in tool result display
+  - Fixed all `[...prev.messages]` spreads in App.jsx to use `[...(prev?.messages || [])]`
+  - Added ErrorBoundary component to catch and display React errors gracefully
+
+**Changes:**
+- `frontend/src/components/ChatInterface.jsx` - Add optional chaining for content.length, null check for output
+- `frontend/src/App.jsx` - Fix all 60+ instances of spreading prev.messages without null check
+- `frontend/src/ErrorBoundary.jsx` - New component for catching React errors
+- `frontend/src/main.jsx` - Wrap App in ErrorBoundary
+
+---
+
 ### v0.29.9
 **Branch:** `v0.29.9`  
 **Completed:** 2025-11-29 17:15 UTC | 2025-11-29 09:15 PST

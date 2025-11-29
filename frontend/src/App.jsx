@@ -16,28 +16,35 @@ function App() {
   // Load conversations on mount and restore last viewed conversation
   useEffect(() => {
     const initializeApp = async () => {
+      console.log('[App] Starting initialization...');
       try {
         setInitError(null);
+        console.log('[App] Loading conversations...');
         const convs = await loadConversations(true);  // throwOnError=true during init
+        console.log('[App] Loaded', convs?.length || 0, 'conversations');
         
         // Restore last viewed conversation from localStorage
         const lastConversationId = localStorage.getItem('lastConversationId');
         if (lastConversationId && convs?.some(c => c.id === lastConversationId)) {
+          console.log('[App] Restoring conversation:', lastConversationId);
           setCurrentConversationId(lastConversationId);
           // Load the conversation before showing the app
           try {
             const conv = await api.getConversation(lastConversationId);
             setCurrentConversation(conv);
+            console.log('[App] Conversation restored');
           } catch (error) {
-            console.error('Failed to restore conversation:', error);
+            console.error('[App] Failed to restore conversation:', error);
             localStorage.removeItem('lastConversationId');
           }
         } else if (lastConversationId) {
           // Conversation was deleted, clear stale reference
+          console.log('[App] Clearing stale lastConversationId');
           localStorage.removeItem('lastConversationId');
         }
+        console.log('[App] Initialization complete, setting isInitializing=false');
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error('[App] Failed to initialize app:', error);
         setInitError(error.message || 'Failed to connect to backend');
       } finally {
         setIsInitializing(false);
@@ -199,7 +206,7 @@ function App() {
 
   // Check if new conversation button should be disabled
   const isNewConversationDisabled = () => {
-    return currentConversation && currentConversation.messages.length === 0;
+    return currentConversation && !currentConversation.messages?.length;
   };
 
   const handleSendMessage = async (content) => {
@@ -211,7 +218,7 @@ function App() {
       const userMessage = { role: 'user', content };
       setCurrentConversation((prev) => ({
         ...prev,
-        messages: [...prev.messages, userMessage],
+        messages: [...(prev?.messages || []), userMessage],
       }));
 
       // Create a partial assistant message that will be updated progressively
@@ -238,7 +245,7 @@ function App() {
       // Add the partial assistant message
       setCurrentConversation((prev) => ({
         ...prev,
-        messages: [...prev.messages, assistantMessage],
+        messages: [...(prev?.messages || []), assistantMessage],
       }));
 
       // Send message with token-level streaming
@@ -247,7 +254,7 @@ function App() {
           case 'classification_start':
             // Classification started
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.classification = { status: 'classifying' };
               return { ...prev, messages };
@@ -257,7 +264,7 @@ function App() {
           case 'classification_complete':
             // Classification complete - store result
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.classification = event.classification;
               return { ...prev, messages };
@@ -267,7 +274,7 @@ function App() {
           case 'direct_response_start':
             // Direct response path (no deliberation)
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.responseType = 'direct';
               lastMsg.loading.stage3 = true;  // Use stage3 loading for direct response
@@ -278,7 +285,7 @@ function App() {
           case 'direct_response_token':
             // Streaming token from direct response
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -296,7 +303,7 @@ function App() {
           case 'direct_response_thinking':
             // Thinking from direct response
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -314,7 +321,7 @@ function App() {
           case 'direct_response_complete':
             // Direct response complete
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.stage3 = event.data;
               lastMsg.loading.stage3 = false;
@@ -335,7 +342,7 @@ function App() {
           case 'formatter_start':
             // Formatter model starting to improve response
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.formatterActive = true;
               return { ...prev, messages };
@@ -345,7 +352,7 @@ function App() {
           case 'formatter_token':
             // Streaming token from formatter
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -364,7 +371,7 @@ function App() {
           case 'formatter_thinking':
             // Thinking from formatter
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -383,7 +390,7 @@ function App() {
           case 'formatter_complete':
             // Formatter complete - update final response
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.stage3 = { ...lastMsg.stage3, response: event.response, model: event.model };
               lastMsg.formatterActive = false;
@@ -404,7 +411,7 @@ function App() {
           case 'deliberation_start':
             // Full deliberation path
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.responseType = 'deliberation';
               return { ...prev, messages };
@@ -414,7 +421,7 @@ function App() {
           case 'tool_call_start':
             // Tool call starting - add to tool steps array
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.toolSteps) lastMsg.toolSteps = [];
               // Add new step in 'running' state
@@ -434,7 +441,7 @@ function App() {
           case 'tool_call_complete':
             // Tool call completed - update step with output
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (lastMsg.toolSteps && lastMsg.toolSteps.length > 0) {
                 // Find the running step for this tool and update it
@@ -460,7 +467,7 @@ function App() {
           case 'tool_result':
             // MCP tool was used, store the result (for backward compatibility)
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.toolResult = {
                 tool: event.tool,
@@ -474,7 +481,7 @@ function App() {
 
           case 'stage1_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.loading.stage1 = true;
               return { ...prev, messages };
@@ -483,7 +490,7 @@ function App() {
 
           case 'stage1_token':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage1[event.model] = {
@@ -500,7 +507,7 @@ function App() {
 
           case 'stage1_thinking':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage1[event.model] = {
@@ -517,7 +524,7 @@ function App() {
 
           case 'stage1_model_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (lastMsg.streaming?.stage1?.[event.model]) {
                 lastMsg.streaming.stage1[event.model].isStreaming = false;
@@ -531,7 +538,7 @@ function App() {
 
           case 'stage1_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.stage1 = event.data;
               lastMsg.loading.stage1 = false;
@@ -541,7 +548,7 @@ function App() {
 
           case 'stage2_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.loading.stage2 = true;
               return { ...prev, messages };
@@ -550,7 +557,7 @@ function App() {
 
           case 'round_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.roundInfo) lastMsg.roundInfo = {};
               lastMsg.roundInfo = {
@@ -564,7 +571,7 @@ function App() {
 
           case 'round_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (lastMsg.roundInfo) {
                 lastMsg.roundInfo.lowRatedResponses = event.low_rated_responses;
@@ -576,7 +583,7 @@ function App() {
 
           case 'stage2_token':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage2[event.model] = {
@@ -593,7 +600,7 @@ function App() {
 
           case 'stage2_thinking':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage2[event.model] = {
@@ -610,7 +617,7 @@ function App() {
 
           case 'stage2_model_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (lastMsg.streaming?.stage2?.[event.model]) {
                 lastMsg.streaming.stage2[event.model].isStreaming = false;
@@ -624,7 +631,7 @@ function App() {
 
           case 'stage2_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.stage2 = event.data;
               lastMsg.metadata = event.metadata;
@@ -635,7 +642,7 @@ function App() {
 
           case 'stage3_start':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.loading.stage3 = true;
               return { ...prev, messages };
@@ -644,7 +651,7 @@ function App() {
 
           case 'stage3_token':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -661,7 +668,7 @@ function App() {
 
           case 'stage3_thinking':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
               lastMsg.streaming.stage3 = {
@@ -678,7 +685,7 @@ function App() {
 
           case 'stage3_complete':
             setCurrentConversation((prev) => {
-              const messages = [...prev.messages];
+              const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
               lastMsg.stage3 = event.data;
               lastMsg.loading.stage3 = false;
@@ -783,7 +790,7 @@ function App() {
     // Add the partial assistant message
     setCurrentConversation((prev) => ({
       ...prev,
-      messages: [...prev.messages, assistantMessage],
+      messages: [...(prev?.messages || []), assistantMessage],
     }));
 
     // Send message with token-level streaming
@@ -792,7 +799,7 @@ function App() {
       switch (eventType) {
         case 'classification_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.classification = { status: 'classifying' };
             return { ...prev, messages };
@@ -801,7 +808,7 @@ function App() {
 
         case 'classification_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.classification = event.classification;
             return { ...prev, messages };
@@ -819,7 +826,7 @@ function App() {
 
         case 'direct_response_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.responseType = 'direct';
             lastMsg.loading.stage3 = true;
@@ -829,7 +836,7 @@ function App() {
 
         case 'direct_response_token':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -846,7 +853,7 @@ function App() {
 
         case 'direct_response_thinking':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -863,7 +870,7 @@ function App() {
 
         case 'direct_response_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.stage3 = event.data;
             lastMsg.loading.stage3 = false;
@@ -883,7 +890,7 @@ function App() {
 
         case 'formatter_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.formatterActive = true;
             return { ...prev, messages };
@@ -892,7 +899,7 @@ function App() {
 
         case 'formatter_token':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -910,7 +917,7 @@ function App() {
 
         case 'formatter_thinking':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -928,7 +935,7 @@ function App() {
 
         case 'formatter_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.stage3 = { ...lastMsg.stage3, response: event.response, model: event.model };
             lastMsg.formatterActive = false;
@@ -948,7 +955,7 @@ function App() {
 
         case 'deliberation_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.responseType = 'deliberation';
             return { ...prev, messages };
@@ -958,7 +965,7 @@ function App() {
         case 'tool_call_start':
           // Tool call starting - add to tool steps array
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.toolSteps) lastMsg.toolSteps = [];
             lastMsg.toolSteps = [
@@ -977,7 +984,7 @@ function App() {
         case 'tool_call_complete':
           // Tool call completed - update step with output
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (lastMsg.toolSteps && lastMsg.toolSteps.length > 0) {
               const stepIndex = lastMsg.toolSteps.findIndex(
@@ -1002,7 +1009,7 @@ function App() {
         case 'tool_result':
           // MCP tool was used, store the result (for backward compatibility)
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.toolResult = {
               tool: event.tool,
@@ -1016,7 +1023,7 @@ function App() {
 
         case 'stage1_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.loading.stage1 = true;
             return { ...prev, messages };
@@ -1025,7 +1032,7 @@ function App() {
 
         case 'stage1_token':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage1[event.model] = {
@@ -1042,7 +1049,7 @@ function App() {
 
         case 'stage1_thinking':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage1[event.model] = {
@@ -1059,7 +1066,7 @@ function App() {
 
         case 'stage1_model_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (lastMsg.streaming?.stage1?.[event.model]) {
               lastMsg.streaming.stage1[event.model].isStreaming = false;
@@ -1073,7 +1080,7 @@ function App() {
 
         case 'stage1_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.stage1 = event.data;
             lastMsg.loading.stage1 = false;
@@ -1083,7 +1090,7 @@ function App() {
 
         case 'stage2_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.loading.stage2 = true;
             return { ...prev, messages };
@@ -1092,7 +1099,7 @@ function App() {
 
         case 'stage2_token':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage2[event.model] = {
@@ -1109,7 +1116,7 @@ function App() {
 
         case 'stage2_thinking':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage2[event.model] = {
@@ -1126,7 +1133,7 @@ function App() {
 
         case 'stage2_model_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (lastMsg.streaming?.stage2?.[event.model]) {
               lastMsg.streaming.stage2[event.model].isStreaming = false;
@@ -1140,7 +1147,7 @@ function App() {
 
         case 'stage2_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.stage2 = event.data;
             lastMsg.metadata = event.metadata;
@@ -1151,7 +1158,7 @@ function App() {
 
         case 'stage3_start':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.loading.stage3 = true;
             return { ...prev, messages };
@@ -1160,7 +1167,7 @@ function App() {
 
         case 'stage3_token':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -1177,7 +1184,7 @@ function App() {
 
         case 'stage3_thinking':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             if (!lastMsg.streaming) lastMsg.streaming = { stage1: {}, stage2: {}, stage3: {} };
             lastMsg.streaming.stage3 = {
@@ -1194,7 +1201,7 @@ function App() {
 
         case 'stage3_complete':
           setCurrentConversation((prev) => {
-            const messages = [...prev.messages];
+            const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
             lastMsg.stage3 = { model: event.model, response: event.response };
             lastMsg.loading.stage3 = false;
@@ -1253,6 +1260,9 @@ function App() {
     }
   };
 
+  // Debug log current state
+  console.log('[App] Render state:', { isInitializing, hasError: !!initError, conversationsCount: conversations?.length, currentConversationId });
+
   // Show loading screen while initializing
   if (isInitializing) {
     return (
@@ -1281,7 +1291,7 @@ function App() {
               // Re-run initialization
               const initializeApp = async () => {
                 try {
-                  await loadConversations();
+                  await loadConversations(true);  // throwOnError=true to trigger error screen
                 } catch (error) {
                   setInitError(error.message || 'Failed to connect to backend');
                 } finally {
