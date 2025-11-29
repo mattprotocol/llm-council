@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
@@ -126,7 +126,34 @@ export default function ChatInterface({
       {/* Pinned first user message header */}
       {showPinnedHeader && firstUserMessage && (
         <div className="pinned-user-message">
-          <div className="pinned-label">📌 Original Question</div>
+          <div className="pinned-header-row">
+            <div className="pinned-ids">
+              <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
+              <span className="id-separator">|</span>
+              <span className="id-badge message-id" title="Message ID">{firstUserIndex}</span>
+            </div>
+            <div className="pinned-label">📌 Original Question</div>
+            <div className="pinned-actions">
+              <button
+                className="action-btn redo-btn"
+                onClick={() => handleRedo(firstUserIndex)}
+                disabled={isLoading}
+                title="Re-run council with this message"
+              >
+                <span className="btn-icon">↻</span>
+                <span className="btn-text">Re-run</span>
+              </button>
+              <button
+                className="action-btn edit-btn"
+                onClick={() => handleEdit(firstUserIndex, firstUserMessage.content)}
+                disabled={isLoading}
+                title="Edit and resubmit message"
+              >
+                <span className="btn-icon">✎</span>
+                <span className="btn-text">Edit</span>
+              </button>
+            </div>
+          </div>
           <div className="pinned-content">
             {firstUserMessage.content.length > 200 
               ? firstUserMessage.content.substring(0, 200) + '...'
@@ -150,9 +177,14 @@ export default function ChatInterface({
             >
               {msg.role === 'user' ? (
                 <div className="user-message">
+                  <div className="message-ids">
+                    <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
+                    <span className="id-separator">|</span>
+                    <span className="id-badge message-id" title="Message ID">{index}</span>
+                  </div>
                   <div className="message-content">
                     <div className="markdown-content">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <MarkdownRenderer>{msg.content}</MarkdownRenderer>
                     </div>
                     <div className="message-actions">
                       <button
@@ -178,6 +210,11 @@ export default function ChatInterface({
                 </div>
               ) : (
                 <div className="assistant-message">
+                  <div className="message-ids">
+                    <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
+                    <span className="id-separator">|</span>
+                    <span className="id-badge message-id" title="Message ID">{index}</span>
+                  </div>
                   <div className="message-label">
                     LLM Council
                     {msg.classification && (

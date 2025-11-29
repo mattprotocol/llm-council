@@ -1,0 +1,222 @@
+/* MarkdownRenderer.css - Styles for enhanced markdown rendering */
+
+.markdown-renderer {
+  line-height: 1.6;
+}
+
+/* Table styles */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 16px 0;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.markdown-renderer table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #1a1a1a;
+}
+
+.markdown-renderer th,
+.markdown-renderer td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+.markdown-renderer th {
+  background: #252525;
+  font-weight: 600;
+  color: #e0e0e0;
+  border-bottom: 2px solid #444;
+}
+
+.markdown-renderer tr:hover {
+  background: #252525;
+}
+
+.markdown-renderer tr:last-child td {
+  border-bottom: none;
+}
+
+/* Code block styles */
+.code-block-wrapper {
+  margin: 12px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #333;
+}
+
+.code-language {
+  display: block;
+  background: #333;
+  color: #888;
+  font-size: 11px;
+  padding: 4px 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #444;
+}
+
+.inline-code {
+  background: #333;
+  color: #e0b0ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+/* Mermaid diagram styles */
+.mermaid-container {
+  margin: 16px 0;
+  padding: 20px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.mermaid-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-loading {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+  font-style: italic;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.mermaid-error {
+  padding: 16px;
+  background: #2a1515;
+  border: 1px solid #5c2020;
+  border-radius: 8px;
+  color: #ff8080;
+  margin: 16px 0;
+}
+
+.mermaid-error pre {
+  margin-top: 12px;
+  padding: 12px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 12px;
+  color: #888;
+}
+
+/* List styles */
+.markdown-renderer ul,
+.markdown-renderer ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.markdown-renderer li {
+  margin: 6px 0;
+}
+
+.markdown-renderer li > ul,
+.markdown-renderer li > ol {
+  margin: 4px 0;
+}
+
+/* Task list styles (GFM) */
+.markdown-renderer input[type="checkbox"] {
+  margin-right: 8px;
+  transform: scale(1.1);
+}
+
+/* Blockquote styles */
+.markdown-renderer blockquote {
+  margin: 16px 0;
+  padding: 12px 20px;
+  background: #1a1a1a;
+  border-left: 4px solid #6366f1;
+  border-radius: 0 8px 8px 0;
+  color: #b0b0b0;
+}
+
+.markdown-renderer blockquote p {
+  margin: 0;
+}
+
+/* Horizontal rule */
+.markdown-renderer hr {
+  border: none;
+  border-top: 1px solid #333;
+  margin: 24px 0;
+}
+
+/* Link styles */
+.markdown-renderer a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.markdown-renderer a:hover {
+  text-decoration: underline;
+}
+
+/* Image styles */
+.markdown-renderer img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+/* Header styles */
+.markdown-renderer h1,
+.markdown-renderer h2,
+.markdown-renderer h3,
+.markdown-renderer h4,
+.markdown-renderer h5,
+.markdown-renderer h6 {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown-renderer h1 { font-size: 1.8em; }
+.markdown-renderer h2 { font-size: 1.5em; }
+.markdown-renderer h3 { font-size: 1.25em; }
+.markdown-renderer h4 { font-size: 1.1em; }
+
+/* First header shouldn't have top margin */
+.markdown-renderer > h1:first-child,
+.markdown-renderer > h2:first-child,
+.markdown-renderer > h3:first-child {
+  margin-top: 0;
+}
+
+/* Strikethrough (GFM) */
+.markdown-renderer del {
+  color: #888;
+  text-decoration: line-through;
+}
+
+/* Definition list styles */
+.markdown-renderer dl {
+  margin: 16px 0;
+}
+
+.markdown-renderer dt {
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.markdown-renderer dd {
+  margin-left: 24px;
+  color: #b0b0b0;
+}

@@ -25,7 +25,30 @@
   color: #4a90e2;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  flex: 1;
+}
+
+.pinned-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.pinned-ids {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pinned-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pinned-actions .action-btn {
+  font-size: 11px;
+  padding: 3px 8px;
 }
 
 .pinned-content {
@@ -71,6 +94,47 @@
 .user-message,
 .assistant-message {
   margin-bottom: 16px;
+  position: relative;
+}
+
+/* Message IDs - top-left corner */
+.message-ids {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 10px;
+  z-index: 5;
+}
+
+.id-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: help;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.id-badge:hover {
+  opacity: 1;
+}
+
+.id-badge.conversation-id {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.id-badge.message-id {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.id-separator {
+  color: #999;
+  font-size: 9px;
 }
 
 .message-label {

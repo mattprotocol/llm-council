@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import './Stage1.css';
 
 export default function Stage1({ responses, streaming }) {
@@ -81,7 +81,7 @@ export default function Stage1({ responses, streaming }) {
             )}
             
             <div className="response-text markdown-content">
-              <ReactMarkdown>{displayContent}</ReactMarkdown>
+              <MarkdownRenderer>{displayContent}</MarkdownRenderer>
               {isStreaming && <span className="cursor-blink">▌</span>}
             </div>
           </div>

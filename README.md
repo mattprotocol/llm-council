@@ -17,7 +17,19 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.26.0)
+### Current Release (v0.28.0)
+- **Enhanced Markdown Rendering**: Full support for rich content in council responses
+  - GitHub Flavored Markdown (tables, strikethrough, task lists)
+  - Syntax highlighted code blocks with language labels
+  - Mermaid diagram rendering (flowcharts, sequence diagrams, class diagrams, etc.)
+  - Shared `MarkdownRenderer` component used across all stages
+
+- **Conversation/Message IDs**: Visual ID badges for debugging and reference
+  - Shows truncated conversation ID and message index in top-left of messages
+  - Format: `<conv_id> | <msg_index>` with tooltips
+  - Appears in pinned header and all message areas
+
+### Previous Release (v0.26.0)
 - **Restore Last Conversation on Refresh**: Automatically opens the last viewed conversation on app start
   - Persists current conversation ID to localStorage
   - Restores on page refresh or app restart

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import './Stage2.css';
 
 function deAnonymizeText(text, labelToModel) {
@@ -104,9 +104,9 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
         )}
         
         <div className="ranking-content markdown-content">
-          <ReactMarkdown>
+          <MarkdownRenderer>
             {deAnonymizeText(displayContent, labelToModel)}
-          </ReactMarkdown>
+          </MarkdownRenderer>
           {isStreaming && <span className="cursor-blink">▌</span>}
         </div>
 

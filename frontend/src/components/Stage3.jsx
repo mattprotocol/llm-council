@@ -1,4 +1,4 @@
-import ReactMarkdown from 'react-markdown';
+import MarkdownRenderer from './MarkdownRenderer';
 import './Stage3.css';
 
 export default function Stage3({ finalResponse, streaming, isDirect = false }) {
@@ -45,7 +45,7 @@ export default function Stage3({ finalResponse, streaming, isDirect = false }) {
         )}
         
         <div className="final-text markdown-content">
-          <ReactMarkdown>{displayContent}</ReactMarkdown>
+          <MarkdownRenderer>{displayContent}</MarkdownRenderer>
           {isStreaming && <span className="cursor-blink">▌</span>}
         </div>
       </div>

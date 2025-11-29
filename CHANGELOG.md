@@ -4,6 +4,40 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.28.0
+**Branch:** `v0.28.0`  
+**Completed:** 2025-11-29 15:10 UTC | 2025-11-29 07:10 PST
+
+**Features:**
+- **Enhanced Markdown Rendering**: Full support for tables, code blocks, and mermaid diagrams
+  - GitHub Flavored Markdown (GFM) with tables, strikethrough, task lists
+  - Syntax highlighted code blocks with language labels
+  - Mermaid diagram rendering (flowcharts, sequence diagrams, etc.)
+  - New shared `MarkdownRenderer` component used across all stages
+  - Dependencies: remark-gfm, rehype-raw, react-syntax-highlighter, mermaid
+
+- **Conversation/Message IDs**: Visual ID badges in message areas
+  - Shows truncated conversation ID and message index in top-left corner
+  - Tooltip on hover shows "Conversation ID" or "Message ID"
+  - Format: `<conv_id> | <msg_index>`
+  - Appears in pinned header and all message cards
+
+**Fixes:**
+- **Pinned Header Actions**: Re-run and Edit buttons now visible in pinned "Original Question" header
+  - Matches functionality from v0.27.0 for inline messages
+
+**Changes:**
+- `frontend/src/components/MarkdownRenderer.jsx` - New shared component
+- `frontend/src/components/MarkdownRenderer.css` - Styles for tables, code, mermaid
+- `frontend/src/components/Stage1.jsx` - Use MarkdownRenderer
+- `frontend/src/components/Stage2.jsx` - Use MarkdownRenderer
+- `frontend/src/components/Stage3.jsx` - Use MarkdownRenderer
+- `frontend/src/components/ChatInterface.jsx` - Use MarkdownRenderer, add ID badges
+- `frontend/src/components/ChatInterface.css` - ID badge styles
+- `frontend/package.json` - Add markdown dependencies
+
+---
+
 ### v0.26.0
 **Branch:** `v0.26.0`  
 **Completed:** 2025-11-29 14:25 UTC | 2025-11-29 06:25 PST
