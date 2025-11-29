@@ -14,6 +14,12 @@
       "description": "Web search for current information, recent events, and specific entities"
     },
     {
+      "name": "firecrawl",
+      "command": ["python3", "-m", "mcp_servers.firecrawl.server"],
+      "port": null,
+      "description": "Web scraping and content extraction - scrape pages as clean markdown"
+    },
+    {
       "name": "system-date-time",
       "command": ["python3", "-m", "mcp_servers.system_date_time.server"],
       "port": null,

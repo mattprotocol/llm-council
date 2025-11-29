@@ -17,7 +17,18 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.23.0)
+### Current Release (v0.24.0)
+- **Firecrawl MCP Server**: Web scraping and content extraction using Firecrawl API
+  - `firecrawl-scrape`: Scrape single URL to clean markdown
+  - `firecrawl-batch-scrape`: Scrape multiple URLs (max 10)
+  - Returns clean markdown with title and description
+
+- **Deep Research Workflow**: Multi-turn research for comprehensive queries
+  - Automatically detects queries needing deep research (top N lists, comparisons, rankings)
+  - Chains websearch → URL extraction → firecrawl for multi-source content
+  - Enables comprehensive answers for "top 10 EVs", "best laptops", etc.
+
+### Previous Release (v0.23.0)
 - **MCP Tool Execution Time**: Display execution time for MCP tool calls in tool result card
 
 ### Previous Release (v0.22.0)

@@ -1020,12 +1020,260 @@ Output ONLY the JSON object. No other text."""
     return _extract_json_from_response(content)
 
 
+async def _needs_deep_research(user_query: str) -> bool:
+    """
+    Determine if a query needs deep research (multi-page content extraction).
+    
+    Deep research is needed for queries asking for:
+    - Rankings, comparisons, or "top N" lists
+    - Comprehensive analysis or reviews
+    - Multi-source information gathering
+    
+    Returns:
+        True if deep research workflow should be used
+    """
+    query_lower = user_query.lower()
+    
+    # Keywords that suggest need for deep research
+    deep_research_patterns = [
+        r'\btop\s+\d+\b',           # "top 10", "top 5", etc.
+        r'\bbest\s+\d+\b',          # "best 10", "best 5", etc.
+        r'\bmost\s+\w+\s+\d+\b',    # "most practical 10", etc.
+        r'\branking\b',             # ranking
+        r'\bcompare\b',             # compare
+        r'\bcomparison\b',          # comparison
+        r'\bvs\b',                  # vs
+        r'\bversus\b',              # versus
+        r'\bwhich\s+are\b.*\best\b', # "which are the best"
+        r'\breview\b.*\bmultiple\b', # review multiple
+    ]
+    
+    for pattern in deep_research_patterns:
+        if re.search(pattern, query_lower):
+            return True
+    
+    return False
+
+
+async def _extract_urls_from_search(
+    user_query: str,
+    search_result: Dict[str, Any],
+    max_urls: int = 5
+) -> List[str]:
+    """
+    Use LLM to identify the most relevant URLs from search results.
+    
+    Args:
+        user_query: The user's original query
+        search_result: The web search result
+        max_urls: Maximum number of URLs to extract
+        
+    Returns:
+        List of URLs most relevant to answering the query
+    """
+    tool_model = get_tool_calling_model()
+    
+    # Extract search result text
+    search_text = ""
+    output = search_result.get('output', {})
+    if isinstance(output, dict) and 'content' in output:
+        content = output['content']
+        if isinstance(content, list) and len(content) > 0:
+            search_text = content[0].get('text', '')
+    elif isinstance(output, str):
+        search_text = output
+    
+    if not search_text:
+        print("[Deep Research] No search results to extract URLs from")
+        return []
+    
+    messages = [{
+        "role": "user",
+        "content": f"""Analyze these search results and identify the URLs most likely to contain comprehensive information to answer this question:
+
+QUESTION: {user_query}
+
+SEARCH RESULTS:
+{search_text}
+
+Return a JSON array of the {max_urls} most relevant URLs. Consider:
+- URLs from authoritative sources (major publications, official sites)
+- URLs that appear to be article/list pages rather than homepages
+- URLs that seem to directly address the question
+
+Return ONLY a JSON array like: ["url1", "url2", "url3"]
+No explanation, just the JSON array."""
+    }]
+    
+    response = await query_model_with_retry(tool_model, messages, timeout=30, max_retries=1)
+    
+    if not response or not response.get('content'):
+        return []
+    
+    content = response['content'].strip()
+    
+    # Extract JSON array from response
+    try:
+        # Try direct parse
+        urls = json.loads(content)
+        if isinstance(urls, list):
+            return [url for url in urls if isinstance(url, str) and url.startswith('http')][:max_urls]
+    except json.JSONDecodeError:
+        pass
+    
+    # Try to find array in response
+    match = re.search(r'\[.*\]', content, re.DOTALL)
+    if match:
+        try:
+            urls = json.loads(match.group())
+            if isinstance(urls, list):
+                return [url for url in urls if isinstance(url, str) and url.startswith('http')][:max_urls]
+        except json.JSONDecodeError:
+            pass
+    
+    # Fallback: extract URLs with regex
+    url_pattern = r'https?://[^\s\]\)\"\'\,]+'
+    urls = re.findall(url_pattern, content)
+    return urls[:max_urls]
+
+
+async def deep_research_workflow(
+    user_query: str,
+    on_event: Optional[Callable] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Multi-turn research workflow for comprehensive information gathering.
+    
+    Steps:
+    1. Web search to find relevant sources
+    2. LLM selects most relevant URLs
+    3. Firecrawl extracts content from selected pages
+    4. Combines all content for council deliberation
+    
+    Args:
+        user_query: The user's question
+        on_event: Optional callback for streaming events
+        
+    Returns:
+        Combined research results or None on failure
+    """
+    registry = get_mcp_registry()
+    
+    # Check if firecrawl and websearch are available
+    has_websearch = any('websearch' in t for t in registry.all_tools.keys())
+    has_firecrawl = any('firecrawl' in t for t in registry.all_tools.keys())
+    
+    if not has_websearch or not has_firecrawl:
+        print(f"[Deep Research] Missing required tools (websearch: {has_websearch}, firecrawl: {has_firecrawl})")
+        return None
+    
+    print(f"[Deep Research] Starting multi-turn research for: {user_query[:50]}...")
+    
+    if on_event:
+        on_event("deep_research_start", {"query": user_query})
+    
+    # Step 1: Web search
+    print("[Deep Research] Step 1: Performing web search...")
+    if on_event:
+        on_event("tool_call_start", {"tool": "websearch.web-search", "arguments": {"query": user_query}})
+    
+    search_result = await registry.call_tool("websearch.web-search", {"query": user_query})
+    
+    if on_event:
+        on_event("tool_call_complete", {"tool": "websearch.web-search", "result": search_result})
+    
+    if not search_result.get('success'):
+        print(f"[Deep Research] Web search failed: {search_result.get('error')}")
+        return search_result  # Return search result even if failed
+    
+    # Step 2: Extract relevant URLs
+    print("[Deep Research] Step 2: Identifying relevant URLs...")
+    urls = await _extract_urls_from_search(user_query, search_result, max_urls=3)
+    
+    if not urls:
+        print("[Deep Research] No URLs extracted, returning search results only")
+        return search_result
+    
+    print(f"[Deep Research] Found {len(urls)} relevant URLs: {urls}")
+    
+    # Step 3: Scrape content from each URL
+    print("[Deep Research] Step 3: Extracting content from pages...")
+    all_content = []
+    
+    for i, url in enumerate(urls):
+        print(f"[Deep Research] Scraping {i+1}/{len(urls)}: {url[:60]}...")
+        
+        if on_event:
+            on_event("tool_call_start", {"tool": "firecrawl.firecrawl-scrape", "arguments": {"url": url}})
+        
+        try:
+            scrape_result = await registry.call_tool("firecrawl.firecrawl-scrape", {"url": url})
+            
+            if on_event:
+                on_event("tool_call_complete", {"tool": "firecrawl.firecrawl-scrape", "result": scrape_result})
+            
+            if scrape_result.get('success'):
+                # Extract content from result
+                output = scrape_result.get('output', {})
+                content_text = ""
+                
+                if isinstance(output, dict) and 'content' in output:
+                    content = output['content']
+                    if isinstance(content, list) and len(content) > 0:
+                        content_text = content[0].get('text', '')
+                elif isinstance(output, str):
+                    content_text = output
+                
+                if content_text:
+                    # Truncate to avoid overwhelming context
+                    truncated = content_text[:5000] if len(content_text) > 5000 else content_text
+                    all_content.append(f"## Source: {url}\n\n{truncated}")
+                    print(f"[Deep Research] Extracted {len(content_text)} chars from {url}")
+            else:
+                print(f"[Deep Research] Failed to scrape {url}: {scrape_result.get('error')}")
+        except Exception as e:
+            print(f"[Deep Research] Error scraping {url}: {e}")
+    
+    if not all_content:
+        print("[Deep Research] No content extracted, returning search results only")
+        return search_result
+    
+    # Combine all content
+    combined_content = "\n\n---\n\n".join(all_content)
+    
+    print(f"[Deep Research] Combined {len(all_content)} sources, total {len(combined_content)} chars")
+    
+    if on_event:
+        on_event("deep_research_complete", {
+            "sources": len(all_content),
+            "total_chars": len(combined_content)
+        })
+    
+    return {
+        "success": True,
+        "tool": "deep_research",
+        "server": "deep_research",
+        "input": {"query": user_query, "urls": urls},
+        "output": {
+            "content": [{
+                "type": "text",
+                "text": combined_content
+            }]
+        },
+        "executionTime": 0,  # Will be updated
+        "sources_count": len(all_content),
+        "urls_scraped": urls
+    }
+
+
 async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] = None) -> Optional[Dict[str, Any]]:
     """
     Intelligent two-phase MCP tool execution.
     
     Phase 1: Analyze the query to determine if MCP tools are needed
     Phase 2: Generate and execute the tool call if needed
+    
+    Also supports deep research workflow for queries needing multiple sources.
     
     Args:
         user_query: The user's question
@@ -1040,6 +1288,15 @@ async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] 
     if not registry.all_tools:
         print("[MCP] No tools available, skipping tool check")
         return None
+    
+    # Check if this query needs deep research (multi-source)
+    if await _needs_deep_research(user_query):
+        print("[MCP] Query needs deep research workflow")
+        deep_result = await deep_research_workflow(user_query, on_event)
+        if deep_result and deep_result.get('success'):
+            return deep_result
+        # Fall through to regular tool handling if deep research fails
+        print("[MCP] Deep research failed, falling back to regular tool handling")
     
     # Get detailed tool information for intelligent analysis
     detailed_tool_info = registry.get_detailed_tool_info()

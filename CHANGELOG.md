@@ -4,6 +4,32 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.24.0
+**Branch:** `v0.24.0`  
+**Completed:** 2025-11-29 13:30 UTC | 2025-11-29 05:30 PST
+
+**Features:**
+- **Firecrawl MCP Server**: Web scraping and content extraction
+  - `firecrawl-scrape`: Scrape single URL to clean markdown
+  - `firecrawl-batch-scrape`: Scrape multiple URLs (max 10)
+  - Returns clean markdown with title and description
+  - Uses Firecrawl API for reliable extraction
+
+- **Deep Research Workflow**: Multi-turn research for comprehensive queries
+  - Detects queries needing deep research (top N lists, comparisons, rankings)
+  - Step 1: Web search for relevant sources
+  - Step 2: LLM identifies most relevant URLs from results
+  - Step 3: Firecrawl extracts content from selected pages
+  - Step 4: Combines content for council deliberation
+  - Enables better answers for "top 10 EVs", "best laptops", etc.
+
+**Changes:**
+- `mcp_servers/firecrawl/` - New Firecrawl MCP server
+- `mcp_servers.json` - Add firecrawl server config
+- `backend/council.py` - Add deep research workflow functions
+
+---
+
 ### v0.23.3
 **Branch:** `v0.23.3`  
 **Completed:** 2025-11-29 09:50 UTC | 2025-11-29 01:50 PST

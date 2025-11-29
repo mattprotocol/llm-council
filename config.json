@@ -8,9 +8,9 @@
   "models": {
     "council": [
       {
-        "id": "llama-3.2-3b-instruct",
-        "name": "EXAONE Deep",
-        "description": "EXAONE Deep 7.8B model with MLX optimization",
+        "id": "liquid/lfm2-1.2b",
+        "name": "lfm2",
+        "description": "lfm2 1.2b",
         "ip": "",
         "port": "",
         "base_url_template": "",
@@ -26,9 +26,9 @@
         "api_key": ""
       },
       {
-        "id": "llama-3.2-3b-instruct",
-        "name": "AI21 Jamba Reasoning",
-        "description": "AI21's Jamba reasoning model",
+        "id": "qwen/qwen3-4b-2507",
+        "name": "qwen3 4B",
+        "description": "qwen3 2507 4B model",
         "ip": "",
         "port": "",
         "base_url_template": "",
