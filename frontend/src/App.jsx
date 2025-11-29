@@ -18,7 +18,7 @@ function App() {
     const initializeApp = async () => {
       try {
         setInitError(null);
-        const convs = await loadConversations();
+        const convs = await loadConversations(true);  // throwOnError=true during init
         
         // Restore last viewed conversation from localStorage
         const lastConversationId = localStorage.getItem('lastConversationId');
@@ -135,13 +135,16 @@ function App() {
     };
   }, [currentConversationId, currentConversation]);
 
-  const loadConversations = async () => {
+  const loadConversations = async (throwOnError = false) => {
     try {
       const convs = await api.listConversations();
       setConversations(convs);
       return convs;
     } catch (error) {
       console.error('Failed to load conversations:', error);
+      if (throwOnError) {
+        throw error;
+      }
       return [];
     }
   };

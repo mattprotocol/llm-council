@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.29.9
+**Branch:** `v0.29.9`  
+**Completed:** 2025-11-29 17:15 UTC | 2025-11-29 09:15 PST
+
+**Fixes:**
+- **Blank Page When Backend Unavailable**: Fixed app showing blank page instead of error screen
+  - Root cause: `loadConversations` caught errors internally and returned `[]` instead of throwing
+  - This prevented `initializeApp` from catching the error and setting `initError`
+  - Added `throwOnError` parameter to `loadConversations` to propagate errors during init
+
+**Changes:**
+- `frontend/src/App.jsx` - Add throwOnError parameter to loadConversations, pass true during init
+
+---
+
 ### v0.29.8
 **Branch:** `v0.29.8`  
 **Completed:** 2025-11-29 17:05 UTC | 2025-11-29 09:05 PST
