@@ -17,7 +17,17 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.18.0)
+### Current Release (v0.20.0)
+- **Graphiti Memory Integration**: Persistent memory with confidence-based fast-path responses
+  - Records all messages (user, council members, chairman) to Graphiti knowledge graph
+  - Memory-based response path when confidence exceeds configurable threshold (default 80%)
+  - Configurable confidence model (defaults to chairman if not specified)
+  - Age-weighted confidence scoring for memory freshness
+  - Graceful degradation when Graphiti unavailable
+  - New `/api/memory/status` endpoint for memory service status
+  - Non-blocking async recording for minimal latency impact
+
+### Previous Release (v0.18.0)
 - **Graphiti Knowledge Graph Integration**: Persistent memory for AI agents
   - Connect to external Graphiti MCP server (http://localhost:8000/mcp)
   - Episode management: add memories, retrieve episodes, delete data

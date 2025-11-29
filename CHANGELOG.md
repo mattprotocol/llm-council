@@ -4,6 +4,52 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.20.0
+**Branch:** `v0.20.0`  
+**Completed:** 2025-11-29 00:45 UTC | 2025-11-28 16:45 PST
+
+**Features:**
+- **Graphiti Memory Integration**: Persistent memory with confidence-based fast-path responses
+  - New `backend/memory_service.py` module for Graphiti knowledge graph interaction
+  - Records all messages (user, council members, chairman) to memory asynchronously
+  - Memory-based response path when confidence exceeds threshold (default 80%)
+  - Configurable confidence model in `config.json` (defaults to chairman if not specified)
+  - Age-weighted confidence scoring for memory freshness (max_memory_age_days configurable)
+  - Graceful degradation when Graphiti unavailable - standard workflow continues
+  - New `/api/memory/status` endpoint for memory service status
+
+**Changes:**
+- `backend/memory_service.py` - New memory service module with MemoryService class
+- `backend/main.py` - Added memory initialization, check, and recording hooks
+- `backend/config_loader.py` - Added `get_memory_config()` and `get_confidence_model()`
+- `config.json` - Added `memory` section and `confidence` model configuration
+- `README.md` - Updated Key Features section with v0.20.0 release info
+- `openspec/changes/add-graphiti-memory-integration/` - Change proposal
+
+**Configuration:**
+```json
+{
+  "models": {
+    "confidence": {
+      "id": "",
+      "name": "Memory Confidence Scorer",
+      "description": "Model for scoring memory relevance (empty = use chairman)"
+    }
+  },
+  "memory": {
+    "enabled": true,
+    "confidence_threshold": 0.8,
+    "max_memory_age_days": 30,
+    "group_id": "llm_council",
+    "record_user_messages": true,
+    "record_council_responses": true,
+    "record_chairman_synthesis": true
+  }
+}
+```
+
+---
+
 ### v0.19.2
 **Branch:** `v0.19.2`  
 **Completed:** 2025-11-29 00:05 UTC | 2025-11-28 16:05 PST

@@ -356,6 +356,31 @@ def get_response_config() -> Dict[str, Any]:
     })
 
 
+def get_memory_config() -> Dict[str, Any]:
+    """Get memory configuration for Graphiti integration."""
+    config = load_config()
+    return config.get("memory", {
+        "enabled": True,
+        "confidence_threshold": 0.8,
+        "max_memory_age_days": 30,
+        "group_id": "llm_council",
+        "record_user_messages": True,
+        "record_council_responses": True,
+        "record_chairman_synthesis": True
+    })
+
+
+def get_confidence_model() -> str:
+    """Get confidence model ID. Returns chairman model if not configured."""
+    config = load_config()
+    confidence = config.get("models", {}).get("confidence", {})
+    confidence_id = confidence.get("id", "").strip()
+    if confidence_id:
+        return confidence_id
+    # Fall back to chairman model
+    return config.get("models", {}).get("chairman", {}).get("id", "")
+
+
 def get_model_info(model_id: str) -> Dict[str, Any]:
     """Get detailed information about a specific model."""
     config = load_config()

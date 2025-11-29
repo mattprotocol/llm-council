@@ -476,3 +476,52 @@ Frontend: Display with tabs + validation UI
 ```
 
 All API calls go to local LM Studio server. The entire flow is async/parallel where possible to minimize latency.
+
+## Memory Integration (Graphiti)
+
+### Overview
+The memory service integrates with the Graphiti MCP server to provide persistent memory across conversations. It records all messages and can provide fast-path responses when confidence is high enough.
+
+### Memory Flow
+```
+User Query
+    ↓
+Memory Check (if Graphiti available)
+    ↓
+If confidence >= threshold → Memory-based response (skip LLM)
+    ↓ else
+Standard workflow (classification → tools → routing)
+    ↓
+Async: Record query & response to Graphiti
+```
+
+### Configuration (`config.json`)
+```json
+{
+  "models": {
+    "confidence": {
+      "id": "",
+      "name": "Memory Confidence Scorer",
+      "description": "Model for scoring memory relevance (empty = use chairman)"
+    }
+  },
+  "memory": {
+    "enabled": true,
+    "confidence_threshold": 0.8,
+    "max_memory_age_days": 30,
+    "group_id": "llm_council",
+    "record_user_messages": true,
+    "record_council_responses": true,
+    "record_chairman_synthesis": true
+  }
+}
+```
+
+### Key Components
+- **`backend/memory_service.py`**: MemoryService class for Graphiti interaction
+- **Recording**: Async, non-blocking recording of all messages
+- **Retrieval**: Searches facts and nodes, calculates confidence score
+- **Fallback**: Gracefully continues standard workflow if Graphiti unavailable
+
+### API Endpoint
+- `GET /api/memory/status` - Returns memory service status and configuration

@@ -23,9 +23,10 @@ from .council import (
 )
 from .title_generation import title_service
 from .model_validator import validate_models
-from .config_loader import load_config
+from .config_loader import load_config, get_memory_config
 from .model_metrics import get_all_metrics, get_model_ranking, cleanup_invalid_models
 from .mcp.registry import get_mcp_registry, initialize_mcp, shutdown_mcp
+from .memory_service import get_memory_service, initialize_memory
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -86,6 +87,21 @@ async def lifespan(app: FastAPI):
             print("ℹ️  MCP disabled (no servers configured)")
     except Exception as e:
         print(f"⚠️  MCP initialization failed: {e} (continuing without MCP)")
+    
+    # Initialize Memory service (depends on MCP being initialized first)
+    print("🧠 Initializing memory service...")
+    try:
+        memory_config = get_memory_config()
+        if memory_config.get("enabled", True):
+            memory_available = await initialize_memory()
+            if memory_available:
+                print(f"✅ Memory service initialized (threshold: {memory_config.get('confidence_threshold', 0.8)})")
+            else:
+                print("ℹ️  Memory service unavailable (Graphiti not connected)")
+        else:
+            print("ℹ️  Memory service disabled in config")
+    except Exception as e:
+        print(f"⚠️  Memory initialization failed: {e} (continuing without memory)")
     
     yield
     
@@ -153,6 +169,23 @@ async def call_mcp_tool(tool_name: str, arguments: Dict[str, Any]):
     registry = get_mcp_registry()
     result = await registry.call_tool(tool_name, arguments)
     return result
+
+
+@app.get("/api/memory/status")
+async def get_memory_status():
+    """Get memory service status and configuration."""
+    memory_service = get_memory_service()
+    memory_config = get_memory_config()
+    return {
+        "available": memory_service.is_available,
+        "enabled": memory_config.get("enabled", True),
+        "confidence_threshold": memory_config.get("confidence_threshold", 0.8),
+        "max_memory_age_days": memory_config.get("max_memory_age_days", 30),
+        "group_id": memory_config.get("group_id", "llm_council"),
+        "record_user_messages": memory_config.get("record_user_messages", True),
+        "record_council_responses": memory_config.get("record_council_responses", True),
+        "record_chairman_synthesis": memory_config.get("record_chairman_synthesis", True)
+    }
 
 
 @app.get("/api/metrics")
@@ -452,6 +485,52 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                 """Push events to queue for SSE streaming."""
                 events_queue.put_nowait((event_type, data))
             
+            # ===== PHASE -1: Check memory for quick response =====
+            memory_service = get_memory_service()
+            memory_config = get_memory_config()
+            
+            if memory_service.is_available and memory_config.get("enabled", True):
+                yield f"data: {json.dumps({'type': 'memory_check_start'})}\n\n"
+                
+                memory_response = await memory_service.get_memory_response(request.content, on_event)
+                
+                # Stream any memory events
+                while not events_queue.empty():
+                    event_type, data = events_queue.get_nowait()
+                    yield f"data: {json.dumps({'type': event_type, **data})}\n\n"
+                
+                if memory_response:
+                    # High confidence memory response - skip standard workflow
+                    yield f"data: {json.dumps({'type': 'memory_response_start', 'confidence': memory_response['confidence']})}\n\n"
+                    
+                    direct_result = {
+                        "model": "memory",
+                        "response": memory_response["response"],
+                        "type": "memory",
+                        "confidence": memory_response["confidence"],
+                        "memories_used": memory_response.get("memories_used", 0)
+                    }
+                    
+                    yield f"data: {json.dumps({'type': 'memory_response_complete', 'data': direct_result})}\n\n"
+                    
+                    # Save as assistant message
+                    storage.add_assistant_message(
+                        conversation_id,
+                        [],  # No stage1
+                        [],  # No stage2
+                        direct_result,
+                        None  # No tool result
+                    )
+                    
+                    yield f"data: {json.dumps({'type': 'complete', 'response_type': 'memory'})}\n\n"
+                    return
+                else:
+                    yield f"data: {json.dumps({'type': 'memory_check_complete', 'using_memory': False})}\n\n"
+            
+            # Record user message to memory (async, non-blocking)
+            if memory_service.is_available and memory_config.get("record_user_messages", True):
+                asyncio.create_task(memory_service.record_user_message(request.content, conversation_id))
+            
             # ===== PHASE 0: Classify message =====
             yield f"data: {json.dumps({'type': 'classification_start'})}\n\n"
             
@@ -535,6 +614,14 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                         )
                     except Exception as md_err:
                         print(f"[Storage] Failed to save markdown: {md_err}")
+                
+                # Record direct response to memory (async, non-blocking)
+                if memory_service.is_available and memory_config.get("record_chairman_synthesis", True):
+                    model_name = direct_result.get("model", "unknown")
+                    response_text = direct_result.get("response", "")
+                    asyncio.create_task(memory_service.record_direct_response(
+                        request.content, response_text, model_name, conversation_id
+                    ))
                 
                 yield f"data: {json.dumps({'type': 'complete', 'response_type': 'direct'})}\n\n"
                 return
@@ -639,6 +726,26 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                     )
                 except Exception as md_err:
                     print(f"[Storage] Failed to save markdown: {md_err}")
+
+            # Record council responses and chairman synthesis to memory (async, non-blocking)
+            if memory_service.is_available:
+                # Record council member responses (Stage 1)
+                if memory_config.get("record_council_responses", True) and stage1_results:
+                    for result in stage1_results:
+                        asyncio.create_task(memory_service.record_council_response(
+                            result.get("response", ""),
+                            result.get("model", "unknown"),
+                            1,  # Stage 1
+                            conversation_id
+                        ))
+                
+                # Record chairman synthesis (Stage 3)
+                if memory_config.get("record_chairman_synthesis", True) and stage3_result:
+                    asyncio.create_task(memory_service.record_chairman_synthesis(
+                        stage3_result.get("response", ""),
+                        stage3_result.get("model", "unknown"),
+                        conversation_id
+                    ))
 
             yield f"data: {json.dumps({'type': 'complete', 'response_type': 'deliberation'})}\n\n"
 
