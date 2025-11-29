@@ -4,6 +4,23 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.29.1
+**Branch:** `v0.29.1`  
+**Completed:** 2025-11-29 15:15 UTC | 2025-11-29 07:15 PST
+
+**Fixes:**
+- **Strip Fake Placeholder Images**: Chairman/Presenter responses now strip fake/placeholder image markdown
+  - Models sometimes generate fake image links like `![Image](https://via.placeholder.com/...)`
+  - These render as broken image icons in the UI
+  - New `strip_fake_images()` function removes placeholder URLs (via.placeholder.com, example.com, etc.)
+  - All chairman prompts now include "DO NOT include images or image links" instruction
+  - Applied to all stage3 synthesis functions (streaming and non-streaming)
+
+**Changes:**
+- `backend/council.py` - Added `strip_fake_images()` function, updated chairman prompts, applied to all stage3 responses
+
+---
+
 ### v0.29.0
 **Branch:** `v0.29.0`  
 **Completed:** 2025-11-29 15:15 UTC | 2025-11-29 07:15 PST

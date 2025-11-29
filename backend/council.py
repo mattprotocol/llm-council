@@ -18,6 +18,37 @@ from .mcp.registry import get_mcp_registry
 from .prompt_library import generate_extraction_prompt, find_matching_prompt
 
 
+# ============== Response Post-Processing ==============
+
+def strip_fake_images(text: str) -> str:
+    """Remove markdown image references with placeholder/fake URLs.
+    
+    Models sometimes generate fake placeholder images like:
+    ![Image](https://via.placeholder.com/...)
+    ![Chart](https://example.com/image.png)
+    
+    These render as broken image icons, so we strip them.
+    """
+    # Pattern matches markdown images: ![alt](url)
+    # We remove images with common placeholder/fake URL patterns
+    fake_url_patterns = [
+        r'!\[[^\]]*\]\(https?://via\.placeholder\.com[^\)]*\)',  # via.placeholder.com
+        r'!\[[^\]]*\]\(https?://placeholder\.[^\)]*\)',  # placeholder.* domains
+        r'!\[[^\]]*\]\(https?://example\.com[^\)]*\)',  # example.com (fake)
+        r'!\[[^\]]*\]\(https?://[^\)]*\?text=[^\)]*\)',  # URLs with ?text= (placeholder text)
+        r'!\[[^\]]*\]\(https?://[^\)]+/placeholder[^\)]*\)',  # URLs containing /placeholder
+    ]
+    
+    result = text
+    for pattern in fake_url_patterns:
+        result = re.sub(pattern, '', result, flags=re.IGNORECASE)
+    
+    # Clean up extra blank lines left behind
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    
+    return result.strip()
+
+
 # ============== Token Tracking ==============
 
 class TokenTracker:
@@ -1840,7 +1871,7 @@ Your task as Chairman is to synthesize all of this information into a single, co
 - The peer rankings and what they reveal about response quality
 - Any patterns of agreement or disagreement
 
-Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
+Provide a clear, well-reasoned final answer that represents the council's collective wisdom. Do NOT include images or image links in your response:"""
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
@@ -1856,7 +1887,7 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     return {
         "model": CHAIRMAN_MODEL,
-        "response": response.get('content', '')
+        "response": strip_fake_images(response.get('content', ''))
     }
 
 
@@ -2091,7 +2122,7 @@ Your task as Chairman is to synthesize all of this deliberative process into a s
 - The final rankings and their implications
 - Any patterns of improvement or convergence
 
-Provide a clear, well-reasoned final answer that represents the council's collective wisdom through this deliberative process:"""
+Provide a clear, well-reasoned final answer that represents the council's collective wisdom through this deliberative process. Do NOT include images or image links in your response:"""
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
@@ -2107,7 +2138,7 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     return {
         "model": CHAIRMAN_MODEL,
-        "response": response.get('content', ''),
+        "response": strip_fake_images(response.get('content', '')),
         "synthesis_type": "multi_round_enhanced"
     }
 
@@ -2794,6 +2825,7 @@ Present the council's best insights using rich formatting to maximize clarity an
 - Use **code blocks** with syntax highlighting for any code examples
 - Use **bold** and *italic* for emphasis on key terms
 - Include ASCII diagrams or structured layouts where helpful
+- **DO NOT include images or image links** - they cannot be rendered
 
 Aim for a comprehensive yet scannable answer that makes excellent use of the display area:"""
     else:
@@ -2821,6 +2853,7 @@ Your task as Presenter is to synthesize all of this information into a single, e
 - Use **bold** for key terms and *italic* for emphasis
 - Include ASCII art diagrams where they add clarity
 - Maximize use of visual structure to make the answer scannable and professional
+- **DO NOT include images or image links** - they cannot be rendered
 
 Provide an expertly formatted final answer that represents the council's collective wisdom:"""
 
@@ -2863,6 +2896,9 @@ Provide an expertly formatted final answer that represents the council's collect
             if (not final_content or not final_content.strip()) and reasoning_content and reasoning_content.strip():
                 final_content = reasoning_content
             
+            # Strip fake placeholder images from final content
+            final_content = strip_fake_images(final_content)
+            
             on_event("stage3_complete", {
                 "model": model_to_use,
                 "response": final_content,
@@ -2881,10 +2917,10 @@ Provide an expertly formatted final answer that represents the council's collect
             })
             return {
                 "model": model_to_use,
-                "response": content if content else "Error: Unable to generate final synthesis."
+                "response": strip_fake_images(content) if content else "Error: Unable to generate final synthesis."
             }
     
     return {
         "model": model_to_use,
-        "response": content if content else "Error: Unable to generate final synthesis."
+        "response": strip_fake_images(content) if content else "Error: Unable to generate final synthesis."
     }
