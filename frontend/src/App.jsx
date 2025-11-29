@@ -718,6 +718,15 @@ function App() {
           });
           break;
 
+        case 'title_complete':
+          // Update conversation title in list (for reruns with generic titles)
+          setConversations(prev => prev.map(conv => 
+            conv.id === currentConversationId 
+              ? { ...conv, title: event.title }
+              : conv
+          ));
+          break;
+
         case 'direct_response_start':
           setCurrentConversation((prev) => {
             const messages = [...prev.messages];

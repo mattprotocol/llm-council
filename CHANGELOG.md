@@ -4,6 +4,23 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.22.6
+**Branch:** `v0.22.6`  
+**Completed:** 2025-11-29 06:25 UTC | 2025-11-28 22:25 PST
+
+**Fixes:**
+- **Title Generation on Rerun**: Conversations with generic titles now regenerate titles on message rerun
+  - Changed condition from `is_first_message && generic_title` to just `needs_title`
+  - `needs_title = current_title.startswith("Conversation ") or not current_title`
+  - Added `title_complete` event handler in `runCouncilForMessage`
+  - Fixed in both streaming and non-streaming endpoints
+
+**Changes:**
+- `backend/main.py` - Update title generation condition in both endpoints
+- `frontend/src/App.jsx` - Add `title_complete` handler to `runCouncilForMessage`
+
+---
+
 ### v0.22.5
 **Branch:** `v0.22.5`  
 **Completed:** 2025-11-29 06:22 UTC | 2025-11-28 22:22 PST

@@ -5,21 +5,10 @@ This file tracks pending changes organized by priority. AI agents should process
 ## Current
 <!-- Items actively being worked on. Maximum 3 items. -->
 
-- [ ] **[FIX]** Title not updating on message rerun with default title
-  - Conversations with `Conversation <id>` title don't get updated on rerun
-  - OpenSpec: `fix-title-update-on-rerun`
-  - Files: `frontend/src/App.jsx`, `backend/council.py`
-
 - [ ] **[FIX]** Title not updating on message edit
   - Edit button should trigger title regeneration
   - OpenSpec: `fix-title-update-on-edit`
   - Files: `frontend/src/App.jsx`, `frontend/src/components/ChatInterface.jsx`
-
-- [ ] **[FIX]** Force MCP calculator for math expressions
-  - Detect math expressions and route directly to calculator tool
-  - Faster and more accurate than LLM computation
-  - OpenSpec: `fix-force-calculator-tool`
-  - Files: `backend/council.py`, `backend/mcp_client.py`
 
 ## Next
 <!-- Items queued for implementation after Current is complete. Maximum 5 items. -->

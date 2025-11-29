@@ -406,6 +406,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     # Check if this is the first message and conversation has generic title
     is_first_message = len(conversation["messages"]) == 0
     current_title = conversation.get("title", "").strip()
+    # Check if title needs generation (generic title pattern)
+    needs_title = current_title.startswith("Conversation ") or not current_title
 
     async def event_generator():
         try:
@@ -413,7 +415,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             storage.add_user_message(conversation_id, request.content)
 
             # **SEQUENTIAL PROCESSING**: Generate title BEFORE council deliberation
-            if is_first_message and current_title.startswith("Conversation "):
+            if needs_title:
                 yield f"data: {json.dumps({'type': 'title_generation_start'})}\n\n"
                 
                 try:
@@ -500,6 +502,8 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
     # Check if this is the first message and conversation has generic title
     is_first_message = len(conversation["messages"]) == 0
     current_title = conversation.get("title", "").strip()
+    # Check if title needs generation (generic title pattern)
+    needs_title = current_title.startswith("Conversation ") or not current_title
 
     async def token_event_generator():
         try:
@@ -507,8 +511,8 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
             if not request.skip_user_message:
                 storage.add_user_message(conversation_id, request.content)
 
-            # Generate title first if needed
-            if is_first_message and current_title.startswith("Conversation "):
+            # Generate title if needed (first message or still has generic title)
+            if needs_title:
                 yield f"data: {json.dumps({'type': 'title_generation_start'})}\n\n"
                 
                 try:
