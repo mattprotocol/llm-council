@@ -10,11 +10,6 @@ This file tracks pending changes organized by priority. AI agents should process
 ## Next
 <!-- Items queued for implementation after Current is complete. Maximum 5 items. -->
 
-- [ ] **[BUG]** Graphiti data persistence
-  - Currently data is lost when MCP server restarts (in-memory database)
-  - Need to configure FalkorDB for persistent storage
-  - Related: mcp_servers/graphiti-custom/config.yaml
-
 ## Future
 <!-- Ideas and enhancements for later consideration. No limit. -->
 

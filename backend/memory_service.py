@@ -343,9 +343,16 @@ Types (comma-separated):"""
                                 if isinstance(content, list) and len(content) > 0:
                                     text = content[0].get("text", "")
                                     try:
-                                        facts = json.loads(text)
-                                        if isinstance(facts, list):
-                                            for fact in facts:
+                                        parsed = json.loads(text)
+                                        # Handle both formats: {"facts": [...]} or [...]
+                                        if isinstance(parsed, dict):
+                                            facts = parsed.get("facts", [])
+                                        elif isinstance(parsed, list):
+                                            facts = parsed
+                                        else:
+                                            facts = []
+                                        
+                                        for fact in facts:
                                                 uuid = fact.get("uuid", "")
                                                 if uuid and uuid not in seen_uuids:
                                                     seen_uuids.add(uuid)
@@ -377,9 +384,16 @@ Types (comma-separated):"""
                                 if isinstance(content, list) and len(content) > 0:
                                     text = content[0].get("text", "")
                                     try:
-                                        nodes = json.loads(text)
-                                        if isinstance(nodes, list):
-                                            for node in nodes:
+                                        parsed = json.loads(text)
+                                        # Handle both formats: {"nodes": [...]} or [...]
+                                        if isinstance(parsed, dict):
+                                            nodes = parsed.get("nodes", [])
+                                        elif isinstance(parsed, list):
+                                            nodes = parsed
+                                        else:
+                                            nodes = []
+                                        
+                                        for node in nodes:
                                                 uuid = node.get("uuid", "")
                                                 if uuid and uuid not in seen_uuids:
                                                     seen_uuids.add(uuid)

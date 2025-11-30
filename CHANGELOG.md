@@ -6,7 +6,7 @@ Completed changes with version, branch, and timestamp information.
 
 ### v0.35.0
 **Branch:** `v0.35.0`  
-**Completed:** 2025-11-30 12:15 UTC | 2025-11-30 04:15 PST
+**Completed:** 2025-11-30 13:00 UTC | 2025-11-30 05:00 PST
 
 **Features:**
 - **Memory migration script**: Scans existing conversations for important facts
@@ -15,17 +15,16 @@ Completed changes with version, branch, and timestamp information.
   - Supports `--dry-run` and `--limit` options
   - Usage: `uv run python3 -m backend.memory_migration`
 
+**Bug Fixes:**
 - **Fixed Graphiti API parameters**: Updated memory service to use correct API
   - `group_ids` (plural) instead of `group_id`
   - `max_nodes` and `max_facts` instead of `limit`
+- **Fixed memory search result parsing**: Handle `{"nodes": [...]}` dict format
+  - Previously expected raw list format, now handles both
 
 **Changes:**
 - `backend/memory_migration.py` - New migration script
-- `backend/memory_service.py` - Fixed Graphiti API parameter names
-
-**Known Issues:**
-- Graphiti data doesn't persist across MCP server restarts (in-memory database)
-- Memory search may return empty if Graphiti server was restarted
+- `backend/memory_service.py` - Fixed Graphiti API parameters and response parsing
 
 ---
 
