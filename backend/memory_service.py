@@ -87,7 +87,7 @@ class MemoryService:
         if reference_time is None:
             reference_time = datetime.utcnow()
         
-        # Build episode data for Graphiti add_episode tool
+        # Build memory data for Graphiti add_memory tool
         episode_data = {
             "name": f"{episode_type}_{reference_time.strftime('%Y%m%d_%H%M%S')}",
             "episode_body": content,
@@ -102,7 +102,7 @@ class MemoryService:
         
         try:
             registry = get_mcp_registry()
-            result = await registry.call_tool(f"{self.GRAPHITI_SERVER_NAME}.add_episode", episode_data)
+            result = await registry.call_tool(f"{self.GRAPHITI_SERVER_NAME}.add_memory", episode_data)
             
             if result.get("success"):
                 print(f"[Memory] Recorded episode: {source_description}")
@@ -141,7 +141,7 @@ class MemoryService:
             # Search both facts and nodes for comprehensive results
             # Search facts (relationships/edges)
             facts_result = await registry.call_tool(
-                f"{self.GRAPHITI_SERVER_NAME}.search_facts",
+                f"{self.GRAPHITI_SERVER_NAME}.search_memory_facts",
                 {"query": query, "group_id": self._group_id, "limit": limit}
             )
             

@@ -17,7 +17,7 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.30.0)
+### Current Release (v0.30.3)
 - **LLM-Based Tool Selection**: Fully trusts LLM for tool selection decisions
   - Removed regex/pattern-matching overrides that caused false positives
   - No more calculator triggers from "and/or" or similar patterns
@@ -27,6 +27,8 @@ In a bit more detail, here is what happens when you submit a query:
   - Evaluates if additional data (websearch) would improve responses
   - Called after Stage 1 and Stage 2 completion
   - Prevents infinite loops with single-tool-per-stage limit
+
+- **Memory Service Fixes** (v0.30.3): Updated Graphiti tool names for memory recording/retrieval
 
 ### Previous Release (v0.29.0)
 - **Collapsible Multi-Step Tool Calls**: Compact UI for displaying multiple tool call sequences

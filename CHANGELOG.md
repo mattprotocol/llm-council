@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.30.3
+**Branch:** `v0.30.3`  
+**Completed:** 2025-11-30 03:30 UTC | 2025-11-29 19:30 PST
+
+**Fixes:**
+- **Memory service using wrong Graphiti tool names**: Updated to match current Graphiti MCP server API
+  - Changed `graphiti.add_episode` → `graphiti.add_memory`
+  - Changed `graphiti.search_facts` → `graphiti.search_memory_facts`
+  - Cleared stale FalkorDB graphs to reset memory state
+
+**Changes:**
+- `backend/memory_service.py` - Updated tool names to match Graphiti server
+
+---
+
 ### v0.30.2
 **Branch:** `v0.30.2`  
 **Completed:** 2025-11-30 02:46 UTC | 2025-11-29 18:46 PST
