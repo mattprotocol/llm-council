@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.38.3
+**Branch:** `v0.38.3`  
+**Completed:** 2025-11-30 17:35 UTC | 2025-11-30 09:35 PST
+
+**Fixes:**
+- **Force Light Mode CSS**: Fixed UI colors being inverted by OS dark mode
+  - Added `color-scheme: light` to `:root` in index.css
+  - Added explicit `color: #333` to body element
+  - Prevents browser/OS dark mode from affecting UI rendering
+
+**Technical Details:**
+- `frontend/src/index.css` - Added color-scheme property to force light mode
+
+---
+
 ### v0.38.2
 **Branch:** `v0.38.2`  
 **Completed:** 2025-11-30 17:30 UTC | 2025-11-30 09:30 PST
