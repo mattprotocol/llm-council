@@ -4,8 +4,38 @@ import httpx
 import asyncio
 import time
 import json
-from typing import List, Dict, Any, Optional, AsyncGenerator, Callable
+from typing import List, Dict, Any, Optional, AsyncGenerator, Callable, Set
 from .config_loader import get_model_connection_info, load_config
+
+# Track models that have been warmed up this session
+_warmed_up_models: Set[str] = set()
+
+
+async def warmup_model(model: str, api_endpoint: str, headers: Dict[str, str], timeout: float = 30.0) -> bool:
+    """
+    Send a quick warmup request to trigger model loading in LM Studio.
+    
+    Returns True if warmup succeeded, False otherwise.
+    """
+    warmup_payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 5
+    }
+    
+    try:
+        print(f"[Warmup] Loading model {model}...")
+        timeout_config = httpx.Timeout(connect=10.0, read=timeout, write=timeout, pool=timeout)
+        
+        async with httpx.AsyncClient(timeout=timeout_config) as client:
+            response = await client.post(api_endpoint, headers=headers, json=warmup_payload)
+            response.raise_for_status()
+            _warmed_up_models.add(model)
+            print(f"[Warmup] Model {model} loaded successfully")
+            return True
+    except Exception as e:
+        print(f"[Warmup] Failed to load model {model}: {e}")
+        return False
 
 
 async def query_model_with_retry(
@@ -84,7 +114,8 @@ async def query_model(
     messages: List[Dict[str, str]],
     timeout: Optional[float] = None,
     connection_timeout: Optional[float] = None,
-    max_tokens: Optional[int] = None
+    max_tokens: Optional[int] = None,
+    _warmup_attempted: bool = False
 ) -> Optional[Dict[str, Any]]:
     """
     Query a single model via LM Studio API.
@@ -170,20 +201,31 @@ async def query_model(
         # Re-raise timeout exceptions for retry handling
         raise e
     except httpx.HTTPStatusError as e:
-        # Log HTTP errors with response body for debugging
+        # Check if this is a "model does not exist" error - LM Studio can load dynamically
         error_body = ""
         try:
             error_body = e.response.text
+            error_json = json.loads(error_body)
+            error_msg = error_json.get("error", {}).get("message", "")
         except:
-            pass
+            error_msg = ""
+        
+        # If model doesn't exist and we haven't tried warmup yet, attempt to load it
+        if "does not exist" in error_msg.lower() and not _warmup_attempted and model not in _warmed_up_models:
+            print(f"[Model Loading] Model {model} not loaded, attempting warmup...")
+            warmup_success = await warmup_model(model, api_endpoint, headers)
+            if warmup_success:
+                # Retry the original request
+                return await query_model(model, messages, timeout, connection_timeout, max_tokens, _warmup_attempted=True)
+            else:
+                print(f"[Model Loading] Failed to load {model}, cannot proceed")
+                return None
+        
         print(f"HTTP error querying model {model} at {api_endpoint}: {e}")
         print(f"Response body: {error_body}")
-        import traceback
-        print(f"Full traceback: {traceback.format_exc()}")
         return None
     except Exception as e:
         print(f"Error querying model {model} at {api_endpoint}: {e}")
-        # Print more detailed error info for debugging
         import traceback
         print(f"Full traceback: {traceback.format_exc()}")
         return None

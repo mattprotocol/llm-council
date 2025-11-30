@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.30.11
+**Branch:** `v0.30.11`  
+**Completed:** 2025-11-30 05:43 UTC | 2025-11-29 21:43 PST
+
+**Features:**
+- **Auto-warmup for unloaded models**: When LM Studio returns "model does not exist", automatically sends a quick warmup request to trigger dynamic model loading
+  - Sends minimal "hi" message with max_tokens=5 to load the model
+  - Tracks warmed-up models to avoid repeated warmup attempts
+  - Retries original request after successful warmup
+
+**Changes:**
+- `backend/lmstudio.py` - Added `warmup_model()` function and auto-warmup logic in error handler
+
+---
+
 ### v0.30.10
 **Branch:** `v0.30.10`  
 **Completed:** 2025-11-30 05:32 UTC | 2025-11-29 21:32 PST
