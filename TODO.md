@@ -18,6 +18,14 @@ This file tracks pending changes organized by priority. AI agents should process
 ## Future
 <!-- Ideas and enhancements for later consideration. No limit. -->
 
+- [ ] **[FEATURE]** Memory type categorization system
+  - Categorize memories by type: Episodic, Semantic, Procedural, Priming, Classical Conditioning, Emotional, Prospective, Autobiographical, Spatial
+  - LLM determines memory type(s) before storing
+  - Store in type-specific group(s) instead of single `llm_council` group
+  - Search across all memory groups, return with group context
+  - Migration script to categorize existing memories
+  - Related: backend/memory_service.py, Graphiti MCP
+
 - [ ] **[REFACTOR]** Config restructure - providers, individuals, teams, support
   - New structure with inference providers, model definitions, personalities
   - Teams with member_count, shared personality traits
