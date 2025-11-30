@@ -17,7 +17,18 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.29.0)
+### Current Release (v0.30.0)
+- **LLM-Based Tool Selection**: Fully trusts LLM for tool selection decisions
+  - Removed regex/pattern-matching overrides that caused false positives
+  - No more calculator triggers from "and/or" or similar patterns
+  - Simple math handled correctly by LLM without requiring calculator tool
+  
+- **Iterative Mid-Deliberation Tool Assessment**: Assesses tool needs after each stage
+  - Evaluates if additional data (websearch) would improve responses
+  - Called after Stage 1 and Stage 2 completion
+  - Prevents infinite loops with single-tool-per-stage limit
+
+### Previous Release (v0.29.0)
 - **Collapsible Multi-Step Tool Calls**: Compact UI for displaying multiple tool call sequences
   - Collapsed by default with summary showing tool count and total execution time
   - Expandable header shows tool pipeline flow (e.g., "web-search → firecrawl-scrape")

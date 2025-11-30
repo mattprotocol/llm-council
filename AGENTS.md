@@ -81,22 +81,20 @@ Format:
 4. **Run automated tests** after each change (see Testing Workflow below)
 
 ### Step 5: Update Tracking Files
-After each completed change:
-1. **CHANGELOG.md** - Add entry with version, branch, timestamps (UTC + local)
-2. **FINDINGS.md** - Document lessons learned and discoveries
-3. **⚠️ README.md - MANDATORY FOR ALL FEATURES** 
-   - **DO NOT SKIP THIS STEP** - Features without README updates are incomplete
-   - For NEW features: Add entry under "Current Release" section (shift previous to "Previous Release")
-   - For FIX to existing feature: Update the relevant feature description if behavior changed
-   - Include: Feature name, bullet points describing capability, key technical details
-   - Verify README was updated BEFORE committing
-4. **TODO.md** - Remove completed item, move next item to Current
+After each completed change, use this checklist:
 
-**README Update Checklist (verify before commit):**
-- [ ] "Current Release" section has new/updated entry for this version
-- [ ] Previous "Current Release" moved to "Previous Release" 
-- [ ] Feature description includes user-visible capabilities
-- [ ] Technical implementation details mentioned (tools, APIs, thresholds, etc.)
+```
+□ 1. CHANGELOG.md - Add entry with version, branch, timestamps (UTC + local)
+□ 2. README.md - Update "Current Release" section (MANDATORY for features)
+□ 3. FINDINGS.md - Document lessons learned and discoveries
+□ 4. TODO.md - Remove completed item, move next item to Current
+```
+
+**⚠️ README.md Update is MANDATORY for all features:**
+- For NEW features: Add entry under "Current Release" section (shift previous to "Previous Release")
+- For FIX to existing feature: Update the relevant feature description if behavior changed
+- Include: Feature name, bullet points describing capability, key technical details
+- **Features without README updates are INCOMPLETE - do not commit without it**
 
 ## Project Overview
 
@@ -259,6 +257,28 @@ The project follows semantic versioning with the format `<release>.<feature>.<fi
 - Never create a fix version (0.x.y) that is lower than an existing feature version
 - Example: If v0.14.0 exists, next fix must be v0.14.1, NOT v0.8.x
 
+### ⚠️ MANDATORY COMPLETION CHECKLIST
+
+**Before marking ANY task complete, verify ALL items:**
+
+```
+□ 1. VERSION BRANCH created (git checkout -b v<x.y.z>)
+□ 2. CODE CHANGES implemented and working
+□ 3. TESTS PASS (uv run -m tests.test_runner)
+□ 4. README.md UPDATED (Current Release section)
+□ 5. CHANGELOG.md UPDATED (version entry with timestamps)
+□ 6. COMMITTED (git add -A && git commit -m "v<x.y.z>: description")
+□ 7. PUSHED to feature branch (git push -u origin v<x.y.z>)
+□ 8. MERGED to master (git checkout master && git merge v<x.y.z>)
+□ 9. PUSHED master (git push origin master)
+```
+
+**README.md Update Requirements:**
+- Add entry under "Current Release (v<x.y.z>)" section
+- Shift previous "Current Release" to "Previous Release"
+- Include: Feature name, bullet points, technical details
+- **Features without README updates are INCOMPLETE**
+
 ### Mandatory Workflow (Follow These Steps In Order)
 
 **Step 1: Determine Next Version**
@@ -289,10 +309,13 @@ uv run -m tests.test_runner  # All tests MUST pass before committing
 ```
 
 **Step 5: Update Documentation (BEFORE committing)**
-⚠️ **MANDATORY for features - do NOT skip:**
-- [ ] **README.md**: Update "Current Release" section with new feature
-- [ ] **CHANGELOG.md**: Add version entry with timestamps
-- [ ] **FINDINGS.md**: Document any discoveries or lessons learned
+⚠️ **MANDATORY - do NOT skip any item:**
+
+```
+□ README.md - Update "Current Release" section with new feature/fix
+□ CHANGELOG.md - Add version entry with timestamps (UTC + local)
+□ FINDINGS.md - Document any discoveries or lessons learned (if applicable)
+```
 
 **Step 6: Commit Changes**
 ```bash

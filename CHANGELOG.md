@@ -4,6 +4,27 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.30.1
+**Branch:** `v0.30.0` (amended)  
+**Completed:** 2025-11-30 00:20 UTC | 2025-11-29 16:20 PST
+
+**Fixes:**
+- **Missing README Update for v0.30.0**: Added feature documentation to README.md
+  - Added "Current Release (v0.30.0)" section with LLM-Based Tool Selection and Iterative Assessment
+  - Moved previous v0.29.0 to "Previous Release"
+
+**Documentation:**
+- **Enhanced AGENTS.md Completion Checklist**: Added numbered checklist to prevent missing README updates
+  - New "MANDATORY COMPLETION CHECKLIST" section with 9-step verification
+  - Explicit README update requirements emphasized
+  - Step 5 (Update Tracking Files) now uses checkbox format
+
+**Changes:**
+- `README.md` - Added v0.30.0 feature documentation
+- `AGENTS.md` - Added mandatory completion checklist, improved Step 5 documentation
+
+---
+
 ### v0.30.0
 **Branch:** `v0.30.0`  
 **Completed:** 2025-11-29 18:30 UTC | 2025-11-29 10:30 PST
