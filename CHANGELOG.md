@@ -4,6 +4,25 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.38.2
+**Branch:** `v0.38.2`  
+**Completed:** 2025-11-30 17:30 UTC | 2025-11-30 09:30 PST
+
+**Fixes:**
+- **Conversation History Context**: Fixed robotic greeting behavior where AI would repeat itself
+  - Direct responses now receive full conversation history for context awareness
+  - Added `conversation_history` parameter to `chairman_direct_response()`
+  - Prevents repeated greetings like "Good morning, Mark!" on every message
+  - AI now uses natural conversational flow, acknowledging prior exchanges
+
+**Technical Details:**
+- `backend/council.py` - Updated `chairman_direct_response()` to accept and use `conversation_history`
+- `backend/main.py` - Pass `conversation["messages"]` to direct response calls
+- Added conversation continuity guidance in system prompt when history exists
+- Messages include full user/assistant history before current query
+
+---
+
 ### v0.38.1
 **Branch:** `v0.38.1`  
 **Completed:** 2025-11-30 17:00 UTC | 2025-11-30 09:00 PST

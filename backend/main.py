@@ -362,7 +362,12 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # Route based on message type
     if msg_type in ["factual", "chat"]:
         # Direct response path - skip council deliberation
-        direct_result = await chairman_direct_response(request.content, tool_result)
+        # Pass conversation history for context (prevents robotic repeated greetings)
+        direct_result = await chairman_direct_response(
+            request.content, 
+            tool_result,
+            conversation_history=conversation["messages"]
+        )
         
         # Save as simplified assistant message (include tool_result)
         storage.add_assistant_message(
@@ -659,7 +664,12 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                 yield f"data: {json.dumps({'type': 'direct_response_start', 'reason': classification.get('reasoning', 'Simple query')})}\n\n"
                 
                 direct_task = asyncio.create_task(
-                    chairman_direct_response(request.content, tool_result, on_event)
+                    chairman_direct_response(
+                        request.content, 
+                        tool_result, 
+                        on_event,
+                        conversation_history=conversation["messages"]
+                    )
                 )
                 
                 direct_result = None

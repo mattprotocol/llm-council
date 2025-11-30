@@ -290,7 +290,8 @@ async def chairman_direct_response(
     user_query: str,
     tool_result: Optional[Dict[str, Any]],
     on_event: Optional[Callable] = None,
-    retry_count: int = 0
+    retry_count: int = 0,
+    conversation_history: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     Generate a direct response from the chairman without council deliberation.
@@ -303,6 +304,7 @@ async def chairman_direct_response(
         tool_result: Optional tool execution result
         on_event: Optional callback for streaming events
         retry_count: Internal counter for retry attempts
+        conversation_history: Optional list of previous messages for context
         
     Returns:
         Dict with 'model', 'response', 'type'
@@ -412,19 +414,50 @@ Provide a helpful, accurate answer. Be conversational and concise."""
     # Build messages with optional system message
     # Prepend memory context (AI/user names and behavioral preferences) if available
     memory_context = await get_memory_context()
-    if system_message:
-        system_message = memory_context + system_message
-    elif memory_context:
-        # Create system message just for memory context
-        system_message = memory_context.strip()
+    
+    # Add conversation continuity guidance if there's conversation history
+    continuity_guidance = ""
+    if conversation_history and len(conversation_history) > 0:
+        continuity_guidance = """
+CONVERSATION CONTINUITY:
+- This is an ongoing conversation. DO NOT repeat greetings you've already made.
+- DO NOT re-introduce yourself if you've already done so in this conversation.
+- Use natural conversational flow - acknowledge what the user said and respond appropriately.
+- If user mentions your name, don't re-state it back unless necessary.
+"""
     
     if system_message:
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt}
-        ]
-    else:
-        messages = [{"role": "user", "content": prompt}]
+        system_message = memory_context + continuity_guidance + system_message
+    elif memory_context or continuity_guidance:
+        # Create system message for memory context and/or continuity guidance
+        system_message = (memory_context + continuity_guidance).strip()
+    
+    # Build messages with conversation history for context
+    messages = []
+    
+    # Add system message if present
+    if system_message:
+        messages.append({"role": "system", "content": system_message})
+    
+    # Add conversation history (excluding current query) for context
+    # This prevents robotic repeated greetings like "Good morning, Mark!" when already conversing
+    if conversation_history:
+        for msg in conversation_history:
+            if msg.get("role") == "user":
+                messages.append({"role": "user", "content": msg.get("content", "")})
+            elif msg.get("role") == "assistant":
+                # Extract response from stage3 if available
+                stage3 = msg.get("stage3", {})
+                if isinstance(stage3, dict):
+                    response = stage3.get("response", "")
+                else:
+                    response = str(stage3) if stage3 else ""
+                if response:
+                    messages.append({"role": "assistant", "content": response})
+    
+    # Add current user query
+    messages.append({"role": "user", "content": prompt})
+    
     content = ""
     reasoning = ""
     token_tracker = TokenTracker()
@@ -469,7 +502,7 @@ Provide a helpful, accurate answer. Be conversational and concise."""
                         "reason": "refusal_detected",
                         "attempt": retry_count + 1
                     })
-                return await chairman_direct_response(user_query, tool_result, on_event, retry_count + 1)
+                return await chairman_direct_response(user_query, tool_result, on_event, retry_count + 1, conversation_history)
             
             if on_event:
                 on_event("direct_response_complete", {
