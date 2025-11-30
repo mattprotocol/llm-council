@@ -10,6 +10,12 @@ This file tracks pending changes organized by priority. AI agents should process
 ## Next
 <!-- Items queued for implementation after Current is complete. Maximum 5 items. -->
 
+- [ ] **[FEATURE]** Memory migration from existing conversations
+  - Scan existing conversations for important facts (names, preferences, identity)
+  - Import relevant data into Graphiti memory groups
+  - Run classification to categorize imported memories
+  - Reference: Aether identity not in memory because recorded before memory feature
+
 ## Future
 <!-- Ideas and enhancements for later consideration. No limit. -->
 
