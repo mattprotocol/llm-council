@@ -4,6 +4,20 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.35.1
+**Branch:** `v0.35.1`  
+**Completed:** 2025-11-30 13:45 UTC | 2025-11-30 05:45 PST
+
+**Bug Fixes:**
+- **Fixed memory-based response display**: Added `memory_response_complete` event handler
+  - Memory responses now properly display final answer in UI
+  - Previously stuck on "Analyzing message type..." when memory threshold was met
+
+**Changes:**
+- `frontend/src/App.jsx` - Added handler for `memory_response_complete` event
+
+---
+
 ### v0.35.0
 **Branch:** `v0.35.0`  
 **Completed:** 2025-11-30 13:00 UTC | 2025-11-30 05:00 PST

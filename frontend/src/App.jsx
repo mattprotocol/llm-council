@@ -326,6 +326,21 @@ function App() {
             });
             break;
 
+          case 'memory_response_complete':
+            // Memory response complete - set the response data like direct_response_complete
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage3 = event.data;
+              lastMsg.loading.stage3 = false;
+              // Update classification status to complete
+              if (lastMsg.classification) {
+                lastMsg.classification.status = 'complete';
+              }
+              return { ...prev, messages };
+            });
+            break;
+
           case 'memory_check_complete':
             // Memory check finished (may or may not have been used)
             setCurrentConversation((prev) => {
@@ -934,6 +949,21 @@ function App() {
               response: event.response
             };
             lastMsg.responseType = 'memory';
+            return { ...prev, messages };
+          });
+          break;
+
+        case 'memory_response_complete':
+          // Memory response complete - set the response data like direct_response_complete
+          setCurrentConversation((prev) => {
+            const messages = [...(prev?.messages || [])];
+            const lastMsg = messages[messages.length - 1];
+            lastMsg.stage3 = event.data;
+            lastMsg.loading.stage3 = false;
+            // Update classification status to complete
+            if (lastMsg.classification) {
+              lastMsg.classification.status = 'complete';
+            }
             return { ...prev, messages };
           });
           break;
