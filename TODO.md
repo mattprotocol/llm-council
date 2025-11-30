@@ -5,18 +5,12 @@ This file tracks pending changes organized by priority. AI agents should process
 ## Current
 <!-- Items actively being worked on. Maximum 3 items. -->
 
-- [ ] **[FIX]** MCP tool name mismatches - ports causing wrong tool discovery
-  - firecrawl.get-system-date-time should be firecrawl.firecrawl-scrape
-  - Likely port collision or timing issue during server startup
-  - Related: backend/mcp/registry.py, backend/mcp/client.py
+- [ ] **[FIX]** Duplicate tool query display in ToolSteps
+  - Same tool/query shown twice in tool steps UI
+  - Related: frontend/src/components/ToolSteps.jsx
 
 ## Next
 <!-- Items queued for implementation after Current is complete. Maximum 5 items. -->
-
-- [ ] **[FIX]** Duplicate tool query display in ToolSteps
-  - Same tool/query shown twice in tool steps UI
-  - May be related to MCP registry issue above
-  - Related: frontend/src/components/ToolSteps.jsx
 
 - [ ] **[FEATURE]** Graphiti brain emoji indicator
   - Show 🧠 message with details when Graphiti MCP is used

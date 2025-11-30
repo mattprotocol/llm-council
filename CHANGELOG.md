@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.30.12
+**Branch:** `v0.30.12`  
+**Completed:** 2025-11-30 06:06 UTC | 2025-11-29 22:06 PST
+
+**Bug Fixes:**
+- **MCP tool name mismatch fix**: Added cleanup of stale MCP server processes on startup
+  - Kills any existing `mcp_servers` processes before starting fresh
+  - Prevents port collision where old servers respond on wrong ports
+  - Root cause: stale processes from previous runs causing tool discovery to hit wrong servers
+
+**Changes:**
+- `backend/mcp/registry.py` - Added `_cleanup_stale_servers()` method called during initialization
+
+---
+
 ### v0.30.11
 **Branch:** `v0.30.11`  
 **Completed:** 2025-11-30 05:43 UTC | 2025-11-29 21:43 PST

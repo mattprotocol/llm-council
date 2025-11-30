@@ -3,6 +3,7 @@
 import os
 import json
 import asyncio
+import subprocess
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from .client import MCPClient, MCPTool
@@ -40,6 +41,22 @@ class MCPRegistry:
         # Auto-assign: base_port + index
         return self._base_port + index
     
+    async def _cleanup_stale_servers(self):
+        """Kill any stale MCP server processes from previous runs."""
+        try:
+            # Kill any existing mcp_servers processes
+            result = subprocess.run(
+                ["pkill", "-f", "mcp_servers.*server"],
+                capture_output=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                print("[MCP Registry] Cleaned up stale MCP server processes")
+                await asyncio.sleep(1)  # Give processes time to terminate
+        except Exception as e:
+            # pkill returns non-zero if no processes found, which is fine
+            pass
+    
     async def initialize(self) -> Dict[str, Any]:
         """Initialize all configured MCP servers and discover their tools."""
         if self._initialized:
@@ -67,6 +84,9 @@ class MCPRegistry:
             print("[MCP Registry] No servers configured")
             self._initialized = True
             return {"enabled": False, "servers": [], "tools": []}
+        
+        # Clean up any stale MCP server processes before starting
+        await self._cleanup_stale_servers()
         
         # Start each server
         project_root = Path(__file__).parent.parent.parent
