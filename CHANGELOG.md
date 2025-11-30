@@ -4,6 +4,41 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.39.0
+**Branch:** `v0.39.0`  
+**Completed:** 2025-11-30 18:10 UTC | 2025-11-30 10:10 PST
+
+**Features:**
+- **Collapsible Deliberation Process**: Council deliberation frames now auto-collapse when complete
+  - Stage 1, 2, and 3 wrapped in collapsible `<details>` element after completion
+  - "Final Council Answer" displayed prominently outside the collapsible
+  - Users can expand to see full deliberation process
+  - Cleaner UI - focuses on the final answer while preserving transparency
+
+- **Conversation Pinning**: Pin important conversations to the top of the sidebar
+  - Pin button on each conversation (📍/📌)
+  - Pinned conversations appear at top with yellow highlight
+  - Pin state persisted to localStorage across sessions
+
+- **Memory Status Always Visible**: Memory search status no longer disappears
+  - Shows "Found X memories" for all final states (not just when count > 0)
+  - Details remain visible for 'used' and 'not_used' states
+  - Improved transparency into memory retrieval process
+
+- **ESC Key Stops App**: Press ESC in terminal to stop `./start.sh`
+  - Alternative to Ctrl+C for stopping the application
+  - Clean shutdown of backend and frontend processes
+
+**Technical Details:**
+- `frontend/src/components/ChatInterface.jsx` - Collapsible deliberation with `<details>` element
+- `frontend/src/components/Stage3.jsx` - Added `hideTitleBar` prop for clean final answer display
+- `frontend/src/components/ChatInterface.css` - New styles for collapsible and final answer section
+- `frontend/src/components/Sidebar.jsx` - Pin state management with localStorage persistence
+- `frontend/src/components/Sidebar.css` - Pin button and pinned conversation styles
+- `start.sh` - ESC key detection loop with graceful cleanup
+
+---
+
 ### v0.38.3
 **Branch:** `v0.38.3`  
 **Completed:** 2025-11-30 17:35 UTC | 2025-11-30 09:35 PST

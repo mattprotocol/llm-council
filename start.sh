@@ -18,6 +18,14 @@ kill_port() {
     fi
 }
 
+# Clean up function
+cleanup() {
+    echo ""
+    echo "Stopping servers..."
+    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    exit 0
+}
+
 # Clean up ports before starting
 kill_port 8001
 kill_port 5173
@@ -45,14 +53,32 @@ cd frontend
 npm run dev &
 FRONTEND_PID=$!
 
+cd ..
+
 echo ""
 echo "✓ LLM Council is running!"
 echo "  Backend:  http://localhost:8001"
 echo "  Frontend: http://localhost:5173"
 echo "  Graphiti: http://localhost:8000/mcp/"
 echo ""
-echo "Press Ctrl+C to stop servers (Graphiti container will keep running)"
+echo "Press ESC or Ctrl+C to stop servers (Graphiti container will keep running)"
 
-# Wait for Ctrl+C
-trap "echo 'Stopping servers...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" SIGINT SIGTERM
-wait
+# Trap signals
+trap cleanup SIGINT SIGTERM
+
+# Read keypresses in a loop
+while true; do
+    # Read a single character with 1 second timeout
+    if read -rsn1 -t 1 key; then
+        # Check for ESC (octal 033)
+        if [[ "$key" == $'\e' ]]; then
+            cleanup
+        fi
+    fi
+    
+    # Check if backend or frontend processes are still running
+    if ! kill -0 $BACKEND_PID 2>/dev/null && ! kill -0 $FRONTEND_PID 2>/dev/null; then
+        echo "Processes terminated"
+        exit 1
+    fi
+done

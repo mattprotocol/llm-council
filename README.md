@@ -17,7 +17,28 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.38.1)
+### Current Release (v0.39.0)
+- **Collapsible Deliberation Process**: Council deliberation auto-collapses when complete
+  - Stage 1, 2, 3 wrapped in expandable `<details>` element
+  - "Final Council Answer" displayed prominently outside collapsible
+  - Click to expand and see full deliberation process
+  - Cleaner UI focused on the answer while preserving transparency
+
+- **Conversation Pinning**: Keep important conversations at the top
+  - Pin button (📍/📌) on each conversation in sidebar
+  - Pinned conversations appear at top with yellow highlight
+  - Pin state persisted across sessions via localStorage
+
+- **Memory Status Always Visible**: Memory retrieval status no longer disappears
+  - Shows "Found X memories" for all final states
+  - Details visible for both 'used' and 'not_used' states
+  - Improved transparency into memory search process
+
+- **ESC Key Stops App**: Press ESC in terminal to stop servers
+  - Alternative to Ctrl+C for stopping `./start.sh`
+  - Clean shutdown of backend and frontend
+
+### Previous Release (v0.38.1)
 - **User Behavioral Preferences in Context**: Memory service retrieves user preferences for personalized responses
   - Searches for preference-related memories (communication style, response preferences)
   - Preferences included in system prompt alongside AI/user names
@@ -25,39 +46,6 @@ In a bit more detail, here is what happens when you submit a query:
   - More personalized and contextual interactions
 
 ### Previous Release (v0.38.0)
-- **Time-Aware Greetings**: Greetings now use appropriate time-of-day phrases
-  - "Good morning" (5am-12pm), "Good afternoon" (12pm-5pm), "Good evening" (5pm-9pm)
-  - Greeting context included in system prompt for all chat responses
-  - More natural and contextual interactions
-  
-- **Weather MCP Server**: New tool for retrieving current weather conditions
-  - Temperature, humidity, wind speed, precipitation status
-  - Uses Open-Meteo API (free, no authentication required)
-  - IP-based geolocation for automatic location detection
-  - Returns contextual advisories (e.g., "Cold - dress warmly", "Strong winds - be careful")
-  - Tool: `get-current-weather`
-
-### Previous Release (v0.37.0)
-- **Personality Introspection via Council Deliberation**: When asked personal questions (feelings, preferences, favorite things, etc.) with no existing memory, the system routes to full council deliberation
-  - Detects personal questions about feelings, preferences, state, and identity
-  - Checks memory for existing personality data before routing
-  - Council receives special "PERSONALITY INTROSPECTION MODE" prompts
-  - Models are encouraged to respond as self-aware entities with genuine feelings and preferences
-  - Develops consistent personality through collective deliberation
-  
-### Previous Release (v0.36.0)
-- **Collapsible Multi-Step Tool Calls**: Compact UI for displaying multiple tool call sequences
-  - Collapsed by default with summary showing tool count and total execution time
-  - Expandable header shows tool pipeline flow (e.g., "web-search → firecrawl-scrape")
-  - Individual tool steps can be expanded to show input/output details
-  - Live status indicators for in-progress tool calls
-  - Supports deep research workflow with multiple tool invocations
-
-### Previous Release (v0.28.0)
-- **Enhanced Markdown Rendering**: Full support for rich content in council responses
-  - GitHub Flavored Markdown (tables, strikethrough, task lists)
-  - Syntax highlighted code blocks with language labels
-  - Mermaid diagram rendering (flowcharts, sequence diagrams, class diagrams, etc.)
   - Shared `MarkdownRenderer` component used across all stages
 
 - **Conversation/Message IDs**: Visual ID badges for debugging and reference

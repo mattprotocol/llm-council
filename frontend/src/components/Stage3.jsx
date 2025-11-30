@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import MarkdownRenderer from './MarkdownRenderer';
 import './Stage3.css';
 
-export default function Stage3({ finalResponse, streaming, isDirect = false }) {
+export default function Stage3({ finalResponse, streaming, isDirect = false, hideTitleBar = false }) {
   const thinkingRef = useRef(null);
   const userScrolledRef = useRef(false);
 
@@ -49,6 +49,17 @@ export default function Stage3({ finalResponse, streaming, isDirect = false }) {
 
   if (!displayContent && !isStreaming) {
     return null;
+  }
+
+  // For hideTitleBar mode, just show the content directly
+  if (hideTitleBar) {
+    return (
+      <div className="stage stage3 no-title-bar">
+        <div className="final-text markdown-content">
+          <MarkdownRenderer>{displayContent}</MarkdownRenderer>
+        </div>
+      </div>
+    );
   }
 
   return (

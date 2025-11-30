@@ -17,6 +17,12 @@ export default function Sidebar({
   const [hoveredDeleteBtn, setHoveredDeleteBtn] = useState(null);
   const [duplicateInfo, setDuplicateInfo] = useState(null);
   
+  // Pinned conversations (stored in localStorage)
+  const [pinnedIds, setPinnedIds] = useState(() => {
+    const saved = localStorage.getItem('llm-council-pinned');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
   // Conversation Filter System (CFS) state
   const [showCfsOverlay, setShowCfsOverlay] = useState(false);
   const [activeFilterGroup, setActiveFilterGroup] = useState('user'); // 'all', 'user', 'test' - default to 'user'
@@ -230,10 +236,32 @@ export default function Sidebar({
     return true;
   };
 
+  // Toggle pin status for a conversation
+  const togglePin = (conversationId, event) => {
+    event.stopPropagation();
+    setPinnedIds(prev => {
+      const newPinned = prev.includes(conversationId)
+        ? prev.filter(id => id !== conversationId)
+        : [...prev, conversationId];
+      localStorage.setItem('llm-council-pinned', JSON.stringify(newPinned));
+      return newPinned;
+    });
+  };
+
   // Filter conversations to exclude duplicates and apply CFS filter
   const filteredConversations = conversations
     .filter(conv => !duplicateIds.has(conv.id))
     .filter(conversationMatchesFilter);
+
+  // Sort: pinned first, then by date (most recent first)
+  const sortedConversations = [...filteredConversations].sort((a, b) => {
+    const aPinned = pinnedIds.includes(a.id);
+    const bPinned = pinnedIds.includes(b.id);
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    // Both pinned or both unpinned - maintain original order (by date)
+    return 0;
+  });
 
   // Get tools for a specific server
   const getServerTools = (serverName) => {
@@ -364,25 +392,27 @@ export default function Sidebar({
         {!isRecycleBinView ? (
           // Active conversations view (excluding duplicates which are shown separately)
           <>
-            {filteredConversations.length === 0 ? (
+            {sortedConversations.length === 0 ? (
               <div className="no-conversations">No conversations yet</div>
             ) : (
-              filteredConversations.map((conv) => {
+              sortedConversations.map((conv) => {
                 const status = titleGenerationStatus[conv.id];
                 const isGeneratingTitle = conv.titleGenerating || (status?.status && 
                   ['generating_immediate', 'thinking_immediate'].includes(status.status));
+                const isPinned = pinnedIds.includes(conv.id);
                 
                 return (
                   <div
                     key={conv.id}
                     className={`conversation-item ${
                       conv.id === currentConversationId ? 'active' : ''
-                    } ${isGeneratingTitle ? 'generating-title' : ''}`}
+                    } ${isGeneratingTitle ? 'generating-title' : ''} ${isPinned ? 'pinned' : ''}`}
                     onClick={() => onSelectConversation(conv.id)}
                     title={conv.title || 'New Conversation'}
                   >
                     <div className="conversation-content">
                       <div className="conversation-title">
+                        {isPinned && <span className="pin-indicator">📌 </span>}
                         {isGeneratingTitle && (
                           <span className="title-generation-indicator">⏳ </span>
                         )}
@@ -402,6 +432,13 @@ export default function Sidebar({
                         </div>
                       )}
                     </div>
+                    <button 
+                      className={`pin-btn ${isPinned ? 'pinned' : ''}`}
+                      onClick={(e) => togglePin(conv.id, e)}
+                      title={isPinned ? 'Unpin conversation' : 'Pin conversation'}
+                    >
+                      {isPinned ? '📌' : '📍'}
+                    </button>
                     <button 
                       className={`delete-btn ${hoveredDeleteBtn === conv.id ? 'hovered' : ''}`}
                       onMouseEnter={() => setHoveredDeleteBtn(conv.id)}

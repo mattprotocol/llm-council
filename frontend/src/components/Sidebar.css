@@ -602,3 +602,36 @@
   font-size: 10px;
 }
 
+
+/* Pin button styling */
+.pin-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.conversation-item:hover .pin-btn,
+.pin-btn.pinned {
+  opacity: 1;
+}
+
+.pin-btn:hover {
+  transform: scale(1.1);
+}
+
+.conversation-item.pinned {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  border-left: 3px solid #ffc107;
+}
+
+.conversation-item.pinned.active {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+}
+
+.pin-indicator {
+  font-size: 11px;
+}

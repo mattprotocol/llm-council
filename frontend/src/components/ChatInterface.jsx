@@ -285,9 +285,9 @@ export default function ChatInterface({
                       {msg.memoryStatus.status === 'searching' && (
                         <span className="memory-searching">🧠 Searching memories...</span>
                       )}
-                      {msg.memoryStatus.status === 'found' && msg.memoryStatus.count > 0 && (
+                      {msg.memoryStatus.status === 'found' && (
                         <span className="memory-found">
-                          🧠 Found {msg.memoryStatus.count} relevant {msg.memoryStatus.count === 1 ? 'memory' : 'memories'}
+                          🧠 Found {msg.memoryStatus.count || 0} relevant {msg.memoryStatus.count === 1 ? 'memory' : 'memories'}
                           {msg.memoryStatus.confidence !== undefined && (
                             <span className="memory-confidence">
                               {' '}(confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}%)
@@ -296,7 +296,7 @@ export default function ChatInterface({
                         </span>
                       )}
                       {msg.memoryStatus.status === 'used' && (
-                        <details className="memory-details">
+                        <details className="memory-details" open>
                           <summary>🧠 Memory-based response (confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}%)</summary>
                           <div className="memory-info">
                             <div>Found {msg.memoryStatus.count} relevant memories</div>
@@ -304,9 +304,12 @@ export default function ChatInterface({
                           </div>
                         </details>
                       )}
-                      {msg.memoryStatus.status === 'not_used' && msg.memoryStatus.count > 0 && (
+                      {msg.memoryStatus.status === 'not_used' && (
                         <span className="memory-not-used">
-                          🧠 {msg.memoryStatus.count} memories found but not used (confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}% &lt; {(msg.memoryStatus.threshold * 100).toFixed(0)}%)
+                          🧠 {msg.memoryStatus.count || 0} memories found
+                          {msg.memoryStatus.count > 0 && msg.memoryStatus.confidence !== undefined && (
+                            <span> (confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}% &lt; {(msg.memoryStatus.threshold * 100).toFixed(0)}% threshold)</span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -413,52 +416,113 @@ export default function ChatInterface({
                   {/* For direct responses, skip Stage 1 and Stage 2 */}
                   {msg.responseType !== 'direct' && (
                     <>
-                      {/* Stage 1 */}
-                      {msg.loading?.stage1 && !msg.stage1 && !Object.keys(msg.streaming?.stage1 || {}).length && (
-                        <div className="stage-loading">
-                          <div className="spinner"></div>
-                          <span>Running Stage 1: Collecting individual responses...</span>
-                        </div>
-                      )}
-                      {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
-                        <Stage1 
-                          responses={msg.stage1} 
-                          streaming={msg.streaming?.stage1}
-                        />
-                      )}
+                      {/* Deliberation stages - collapsible when complete */}
+                      {(() => {
+                        const isDeliberationComplete = msg.stage3 && !msg.streaming?.stage3?.isStreaming;
+                        const deliberationContent = (
+                          <>
+                            {/* Stage 1 */}
+                            {msg.loading?.stage1 && !msg.stage1 && !Object.keys(msg.streaming?.stage1 || {}).length && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 1: Collecting individual responses...</span>
+                              </div>
+                            )}
+                            {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
+                              <Stage1 
+                                responses={msg.stage1} 
+                                streaming={msg.streaming?.stage1}
+                              />
+                            )}
 
-                      {/* Stage 2 */}
-                      {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
+                            {/* Stage 2 */}
+                            {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 2: Peer rankings...</span>
+                              </div>
+                            )}
+                            {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
+                              <Stage2
+                                rankings={msg.stage2}
+                                labelToModel={msg.metadata?.label_to_model}
+                                aggregateRankings={msg.metadata?.aggregate_rankings}
+                                streaming={msg.streaming?.stage2}
+                                roundInfo={msg.roundInfo}
+                              />
+                            )}
+
+                            {/* Stage 3 inside collapsible when deliberating */}
+                            {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
+                              <div className="stage-loading">
+                                <div className="spinner"></div>
+                                <span>Running Stage 3: Final synthesis...</span>
+                              </div>
+                            )}
+                            {(msg.stage3 || msg.streaming?.stage3?.content) && (
+                              <Stage3 
+                                finalResponse={msg.stage3} 
+                                streaming={msg.streaming?.stage3}
+                                isDirect={false}
+                              />
+                            )}
+                          </>
+                        );
+
+                        if (isDeliberationComplete) {
+                          return (
+                            <details className="deliberation-collapsible">
+                              <summary className="deliberation-summary">
+                                <span className="deliberation-icon">🤔</span>
+                                <span className="deliberation-text">Council Deliberation Process</span>
+                                <span className="deliberation-hint">(click to expand)</span>
+                              </summary>
+                              <div className="deliberation-content">
+                                {deliberationContent}
+                              </div>
+                            </details>
+                          );
+                        }
+                        return deliberationContent;
+                      })()}
+                    </>
+                  )}
+
+                  {/* Stage 3 / Direct Response - shown outside collapsible for final answer */}
+                  {msg.responseType === 'direct' && (
+                    <>
+                      {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                         <div className="stage-loading">
                           <div className="spinner"></div>
-                          <span>Running Stage 2: Peer rankings...</span>
+                          <span>Generating direct response...</span>
                         </div>
                       )}
-                      {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
-                        <Stage2
-                          rankings={msg.stage2}
-                          labelToModel={msg.metadata?.label_to_model}
-                          aggregateRankings={msg.metadata?.aggregate_rankings}
-                          streaming={msg.streaming?.stage2}
-                          roundInfo={msg.roundInfo}
+                      {(msg.stage3 || msg.streaming?.stage3?.content) && (
+                        <Stage3 
+                          finalResponse={msg.stage3} 
+                          streaming={msg.streaming?.stage3}
+                          isDirect={true}
                         />
                       )}
                     </>
                   )}
 
-                  {/* Stage 3 / Direct Response */}
-                  {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
-                    <div className="stage-loading">
-                      <div className="spinner"></div>
-                      <span>{msg.responseType === 'direct' ? 'Generating direct response...' : 'Running Stage 3: Final synthesis...'}</span>
+                  {/* Final Answer - shown prominently outside collapsible for deliberation */}
+                  {msg.responseType !== 'direct' && msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
+                    <div className="final-answer-section">
+                      <div className="final-answer-header">
+                        <span className="final-answer-icon">✨</span>
+                        <span className="final-answer-title">Final Council Answer</span>
+                      </div>
+                      <div className="final-answer-content markdown-content">
+                        <Stage3 
+                          finalResponse={msg.stage3} 
+                          streaming={null}
+                          isDirect={true}
+                          hideTitleBar={true}
+                        />
+                      </div>
                     </div>
-                  )}
-                  {(msg.stage3 || msg.streaming?.stage3?.content) && (
-                    <Stage3 
-                      finalResponse={msg.stage3} 
-                      streaming={msg.streaming?.stage3}
-                      isDirect={msg.responseType === 'direct'}
-                    />
                   )}
                   
                   {/* Completion indicator */}
