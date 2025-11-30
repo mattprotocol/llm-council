@@ -289,13 +289,17 @@ class AutomatedTestRunner:
     Includes automatic server lifecycle management.
     """
     
+    # Tag prefix for auto-generated test conversations (LLM instructed to ignore)
+    AUTO_TEST_TAG_PREFIX = "<!-- tags: #auto #test | ignore this line -->\n"
+    
     def __init__(
         self,
         base_url: str = "http://localhost:8001",
         max_iterations: int = 3,
         results_dir: str = "tmp/test_results",
         project_root: Optional[str] = None,
-        auto_manage_server: bool = True
+        auto_manage_server: bool = True,
+        auto_test_tags: bool = False
     ):
         self.base_url = base_url
         self.client = LLMCouncilTestClient(base_url)
@@ -304,6 +308,7 @@ class AutomatedTestRunner:
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.evaluator = TestEvaluator()
         self.auto_manage_server = auto_manage_server
+        self.auto_test_tags = auto_test_tags
         
         # Determine project root
         if project_root:
@@ -395,7 +400,12 @@ class AutomatedTestRunner:
         start_time = time.time()
         
         try:
-            result = await self.client.send_message(scenario.query)
+            # Prepend auto-test tags if enabled
+            query = scenario.query
+            if self.auto_test_tags:
+                query = self.AUTO_TEST_TAG_PREFIX + query
+            
+            result = await self.client.send_message(query)
             duration_ms = (time.time() - start_time) * 1000
             
             # Extract response content (handle both direct and deliberation responses)
@@ -661,12 +671,15 @@ async def main():
                        help="Disable automatic server start/stop (requires manual server management)")
     parser.add_argument("--server-startup-timeout", type=int, default=60,
                        help="Timeout in seconds for server startup (default: 60)")
+    parser.add_argument("--auto-test", action="store_true",
+                       help="Add #auto #test tags to queries for filtering test conversations")
     args = parser.parse_args()
     
     runner = AutomatedTestRunner(
         base_url=args.base_url,
         max_iterations=args.max_iterations,
-        auto_manage_server=not args.no_auto_server
+        auto_manage_server=not args.no_auto_server,
+        auto_test_tags=args.auto_test
     )
     
     try:

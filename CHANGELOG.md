@@ -4,6 +4,22 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.31.0
+**Branch:** `v0.31.0`  
+**Completed:** 2025-11-30 06:35 UTC | 2025-11-29 22:35 PST
+
+**Features:**
+- **Auto-test conversation tagging**: Added `--auto-test` flag to test runner
+  - Prepends `<!-- tags: #auto #test | ignore this line -->` to test queries
+  - Tags stored naturally in conversation JSON (no backend API changes needed)
+  - Enables future frontend filtering of test vs user conversations
+  - Usage: `uv run -m tests.test_runner --auto-test`
+
+**Changes:**
+- `tests/test_runner.py` - Added `--auto-test` flag and `AUTO_TEST_TAG_PREFIX` constant
+
+---
+
 ### v0.30.13
 **Branch:** `v0.30.13`  
 **Completed:** 2025-11-30 06:10 UTC | 2025-11-29 22:10 PST
