@@ -251,11 +251,13 @@ export default function ChatInterface({
                   </div>
                 </div>
               ) : (
-                <div className="assistant-message">
-                  {/* Name overlay */}
-                  <div className="message-name-overlay ai-name">
-                    {memoryNames.ai_name || 'Assistant'}
-                  </div>
+                <div className={`assistant-message ${(msg.stage3 || msg.streaming?.stage3?.content) ? 'has-content' : ''}`}>
+                  {/* Name overlay - only show when there's actual content (stage3 or streaming content) */}
+                  {(msg.stage3 || msg.streaming?.stage3?.content) && (
+                    <div className="message-name-overlay ai-name">
+                      {memoryNames.ai_name || 'Assistant'}
+                    </div>
+                  )}
                   <div className="message-ids">
                     <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
                     <span className="id-separator">|</span>

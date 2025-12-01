@@ -4,6 +4,25 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.42.4
+**Branch:** `v0.42.4`  
+**Completed:** 2025-12-01 09:35 UTC | 2025-12-01 01:35 PST
+
+**Fixes:**
+- **AI Name Overlay Positioning**: Fixed name tag to sit ON TOP of message frame (half in, half out)
+  - Changed `top: -10px` with no transform to `top: 0` with `translateY(-50%)`
+  - Name tag now properly overlaps the top edge of the message frame border
+
+- **AI Name Tag Visibility**: Only show AI name tag when there's actual content
+  - Added conditional rendering: only shows when `msg.stage3` or `msg.streaming?.stage3?.content` exists
+  - Prevents showing "Assistant" name tag on empty/loading frames
+
+- **Assistant Message Frame**: Added visible frame for assistant messages with content
+  - New `.has-content` class adds green-tinted background and border
+  - Provides visual frame for the AI name tag to sit on (matches user message styling)
+
+---
+
 ### v0.42.3
 **Branch:** `v0.42.3`  
 **Completed:** 2025-12-01 08:05 UTC | 2025-12-01 00:05 PST
