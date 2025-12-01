@@ -6,7 +6,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple, AsyncGenerator, Callable, Optional
-from .lmstudio import query_models_parallel, query_model_with_retry, query_model_streaming
+from .lmstudio import query_models_parallel, query_model_with_retry, query_model_streaming, query_model
 from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, FORMATTER_MODEL
 from .config_loader import get_deliberation_rounds, get_deliberation_config, get_response_config, get_tool_calling_model
 from .model_metrics import (

@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.41.1
+**Branch:** `v0.41.1`  
+**Completed:** 2025-12-01 04:15 UTC | 2025-11-30 20:15 PST
+
+**Fixes:**
+- **Import missing `query_model` function**: Fixed NameError in council.py during multi-round deliberation
+  - `query_model` was used but not imported in council.py
+  - Added missing import from lmstudio module
+  - Enables conversation reconstruction for deliberation messages
+
+---
+
 ### v0.41.0
 **Branch:** `v0.41.0`  
 **Completed:** 2025-12-01 03:55 UTC | 2025-11-30 19:55 PST
