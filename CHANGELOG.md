@@ -4,6 +4,19 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.41.2
+**Branch:** `v0.41.2`  
+**Completed:** 2025-12-01 04:45 UTC | 2025-11-30 20:45 PST
+
+**Fixes:**
+- **Stage2 TypeError Fix**: Fixed crash when model values are undefined in labelToModel
+  - Error: `Cannot read properties of undefined (reading 'split')`
+  - Added null checks to `deAnonymizeText()` function
+  - Added guards to tab labels, parsed ranking list, aggregate ranking list
+  - All `.split('/')` calls now handle undefined/null model values safely
+
+---
+
 ### v0.41.1
 **Branch:** `v0.41.1`  
 **Completed:** 2025-12-01 04:15 UTC | 2025-11-30 20:15 PST

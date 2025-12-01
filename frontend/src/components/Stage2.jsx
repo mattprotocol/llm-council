@@ -8,6 +8,7 @@ function deAnonymizeText(text, labelToModel) {
   let result = text;
   // Replace each "Response X" with the actual model name
   Object.entries(labelToModel).forEach(([label, model]) => {
+    if (!model) return; // Skip undefined/null model values
     const modelShortName = model.split('/')[1] || model;
     result = result.replace(new RegExp(label, 'g'), `**${modelShortName}**`);
   });
@@ -103,7 +104,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
               className={`tab ${activeTab === index ? 'active' : ''} ${modelStreaming?.isStreaming && !modelComplete ? 'streaming' : ''}`}
               onClick={() => setActiveTab(index)}
             >
-              {model.split('/')[1] || model}
+              {model ? (model.split('/')[1] || model) : 'Unknown'}
               {modelStreaming?.isStreaming && !modelComplete && modelTiming && <span className="timing-indicator">{modelTiming}</span>}
               {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">●</span>}
             </button>
@@ -146,7 +147,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
               {parsedRanking.map((label, i) => (
                 <li key={i}>
                   {labelToModel && labelToModel[label]
-                    ? labelToModel[label].split('/')[1] || labelToModel[label]
+                    ? (labelToModel[label].split('/')[1] || labelToModel[label])
                     : label}
                 </li>
               ))}
@@ -166,7 +167,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
               <div key={index} className="aggregate-item">
                 <span className="rank-position">#{index + 1}</span>
                 <span className="rank-model">
-                  {agg.model.split('/')[1] || agg.model}
+                  {agg.model ? (agg.model.split('/')[1] || agg.model) : 'Unknown'}
                 </span>
                 <span className="rank-score">
                   Avg: {agg.average_rank.toFixed(2)}
