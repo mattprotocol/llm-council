@@ -4,6 +4,20 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.41.3
+**Branch:** `v0.41.3`  
+**Completed:** 2025-12-01 05:10 UTC | 2025-11-30 21:10 PST
+
+**Fixes:**
+- **Saved Conversation Display**: Fixed display issues when loading saved conversations
+  - Direct responses now correctly show "⚡ Direct" badge and skip deliberation UI
+  - Classification badge correctly infers type from `stage3.type` for saved conversations
+  - Tool results correctly display execution time from `execution_time_seconds` field
+  - "Final Council Answer" section only shows for deliberation, not direct responses
+  - Fixed condition checks to use both `msg.responseType` (streaming) and `msg.stage3?.type` (saved)
+
+---
+
 ### v0.41.2
 **Branch:** `v0.41.2`  
 **Completed:** 2025-12-01 04:45 UTC | 2025-11-30 20:45 PST

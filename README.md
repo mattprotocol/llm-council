@@ -17,18 +17,20 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.41.2)
+### Current Release (v0.41.3)
+- **Saved Conversation Display Fix**: Proper display when loading saved conversations
+  - Direct responses correctly show "⚡ Direct" badge and skip deliberation UI
+  - Classification badge correctly infers type from stored data
+  - Tool results display execution time correctly
+  - "Final Council Answer" only shows for deliberation responses
+
+### Previous Release (v0.41.2)
 - **Stage2 TypeError Fix**: Fixed crash when model values are undefined
   - Handles undefined/null model values in `labelToModel` mapping
   - Guards all `.split('/')` calls to prevent TypeError
   - Affects: `deAnonymizeText`, tab labels, parsed rankings, aggregate rankings
 
 ### Previous Release (v0.41.0)
-- **Conversation Reconstruction Script**: Re-run past conversations through current pipeline
-  - Extract user messages and replay through updated v0.40.0+ system
-  - Supports partial ID matching (e.g., `c44e557c` finds full UUID)
-  - `--dry-run` preview, `--stream` for streaming endpoint
-  - Creates new conversation reflecting latest processing improvements
 
 ### Previous Release (v0.40.0)
 - **Short-Term Memory System**: Automatic extraction of relevant conversation information

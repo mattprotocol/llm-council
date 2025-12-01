@@ -263,13 +263,12 @@ export default function ChatInterface({
                   </div>
                   <div className="message-label">
                     LLM Council
-                    {msg.classification && (
-                      <span className={`classification-badge ${msg.classification.type || 'unknown'}`}>
-                        {msg.classification.status === 'classifying' ? '🔍 Classifying...' : 
-                         msg.classification.status === 'complete' ? 
-                           (msg.responseType === 'direct' ? '⚡ Direct' : 
-                            msg.responseType === 'memory' ? '🧠 Memory' : '🤔 Deliberation') :
-                           '🔍 Classifying...'}
+                    {/* Classification badge - check both streaming responseType and saved stage3.type */}
+                    {(msg.classification || msg.stage3) && (
+                      <span className={`classification-badge ${msg.classification?.type || (msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory' ? 'chat' : 'deliberation')}`}>
+                        {msg.classification?.status === 'classifying' ? '🔍 Classifying...' : 
+                         (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? '⚡ Direct' : 
+                         (msg.responseType === 'memory' || msg.stage3?.type === 'memory') ? '🧠 Memory' : '🤔 Deliberation'}
                       </span>
                     )}
                     {msg.memoryStatus && msg.memoryStatus.status === 'used' && (
@@ -344,7 +343,8 @@ export default function ChatInterface({
                   {(msg.toolResult || msg.tool_result) && (!msg.toolSteps || msg.toolSteps.length === 0) && (() => {
                     const toolData = msg.toolResult || msg.tool_result;
                     const toolName = toolData.tool || `${toolData.server}.${toolData.tool}`;
-                    const execTime = toolData.executionTime;
+                    // Handle both streaming (executionTime) and saved (execution_time_seconds) formats
+                    const execTime = toolData.executionTime ?? toolData.execution_time_seconds;
                     const input = toolData.input;
                     const output = toolData.output;
                     
@@ -414,7 +414,8 @@ export default function ChatInterface({
                   })()}
 
                   {/* For direct responses, skip Stage 1 and Stage 2 */}
-                  {msg.responseType !== 'direct' && (
+                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
+                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.stage3?.type !== 'memory' && (
                     <>
                       {/* Deliberation stages - collapsible when complete */}
                       {(() => {
@@ -493,7 +494,8 @@ export default function ChatInterface({
                   )}
 
                   {/* Stage 3 / Direct Response - shown outside collapsible for final answer */}
-                  {msg.responseType === 'direct' && (
+                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
+                  {(msg.responseType === 'direct' || msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory') && (
                     <>
                       {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                         <div className="stage-loading">
@@ -512,7 +514,8 @@ export default function ChatInterface({
                   )}
 
                   {/* Final Answer - shown prominently outside collapsible for deliberation */}
-                  {msg.responseType !== 'direct' && msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
+                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
+                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.stage3?.type !== 'memory' && msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
                     <div className="final-answer-section">
                       <div className="final-answer-header">
                         <span className="final-answer-icon">✨</span>
@@ -534,7 +537,7 @@ export default function ChatInterface({
                     <div className="completion-message">
                       <span className="completion-icon">✓</span>
                       <span className="completion-text">
-                        {msg.responseType === 'direct' ? 'Direct response complete' : 'Council deliberation complete'}
+                        {(msg.responseType === 'direct' || msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory') ? 'Direct response complete' : 'Council deliberation complete'}
                       </span>
                     </div>
                   )}
