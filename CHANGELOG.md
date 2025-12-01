@@ -4,6 +4,23 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.42.3
+**Branch:** `v0.42.3`  
+**Completed:** 2025-12-01 08:05 UTC | 2025-12-01 00:05 PST
+
+**Fixes:**
+- **Name Overlay Position**: Fixed AI/user names position to appear over top edge of message frames
+  - Changed from left-side positioning (`left: -80px, top: 50%`) to top-edge positioning (`left: 12px, top: -10px`)
+  - Added solid background colors (blue for user, green for AI) for better visibility
+  - Added `margin-top: 12px` to message containers to make room for labels
+
+- **Memory Confidence Context**: Added authoritative name context to memory confidence calculation
+  - Issue: Memory responses could use stale/wrong AI names from old data (e.g., "Hermes" instead of "Aether")
+  - Fix: Added name context section to confidence prompt that instructs LLM to use correct names
+  - Format: "IMPORTANT - AUTHORITATIVE NAMES: The AI assistant's name is: Aether..."
+
+---
+
 ### v0.42.2
 **Branch:** `v0.42.2`  
 **Completed:** 2025-12-01 06:45 UTC | 2025-11-30 22:45 PST

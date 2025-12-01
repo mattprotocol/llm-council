@@ -636,13 +636,22 @@ Types (comma-separated):"""
             else:
                 weighted_memories.append({**m, "recency_weight": 0.5})
         
+        # Include known names for context (if loaded)
+        name_context = ""
+        if self._ai_name or self._user_name:
+            name_context = "\n\nIMPORTANT - AUTHORITATIVE NAMES:\n"
+            if self._ai_name:
+                name_context += f"- The AI assistant's name is: {self._ai_name}\n"
+            if self._user_name:
+                name_context += f"- The user's name is: {self._user_name}\n"
+            name_context += "Use these names when generating any recommended answer. Ignore any conflicting names in memories.\n"
+        
         confidence_prompt = f"""You are evaluating whether stored memories can answer a user query with high confidence.
 
 USER QUERY: {query}
 
 RETRIEVED MEMORIES (with recency):
-{memories_text}
-
+{memories_text}{name_context}
 EVALUATION CRITERIA:
 1. RELEVANCE (0-1): How directly do the memories address the query?
 2. COMPLETENESS (0-1): Do the memories contain enough information to fully answer?
