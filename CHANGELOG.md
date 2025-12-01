@@ -4,6 +4,27 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.42.2
+**Branch:** `v0.42.2`  
+**Completed:** 2025-12-01 06:45 UTC | 2025-11-30 22:45 PST
+
+**Fixes:**
+- **Classification Status Persistence**: Fixed "Analyzing message type..." spinner persisting after classification completes
+  - Issue: `classification_complete` event didn't set `status: 'complete'` in the classification object
+  - Fix: Spread event classification and explicitly add `status: 'complete'` in both handleSendMessage handlers
+  - Spinner now correctly disappears when Stage 1 begins
+
+- **Tool Steps Collapse on Load**: Improved condition for collapsing tool steps in saved conversations
+  - Changed condition from `!!(msg.stage3 && !msg.streaming?.stage3?.isStreaming)` to `!!msg.stage3 || !msg.streaming`
+  - Saved conversations (no streaming object) now correctly start with collapsed tool frames
+
+- **Memory Name Search Expansion**: Added user name query patterns to memory search expansion
+  - Issue: User name queries like "remember my name" didn't trigger proper memory search
+  - Added expansions for "my name", "remember my name", "know my name", "what's my name", "who am i"
+  - Includes direct search terms like "user name", "Mark user human"
+
+---
+
 ### v0.42.1
 **Branch:** `v0.42.1`  
 **Completed:** 2025-12-01 05:55 UTC | 2025-11-30 21:55 PST

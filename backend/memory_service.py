@@ -344,14 +344,26 @@ Types (comma-separated):"""
         # Add semantic expansions for common question types
         query_lower = query.lower()
         
-        # Name-related queries
+        # AI name queries
         if any(phrase in query_lower for phrase in ["your name", "what's your name", "who are you", "what are you called"]):
             expanded.extend([
                 "name identity called known as",
                 "shall be known as",
                 "my name is",
                 "you are called",
-                "identity name"
+                "identity name",
+                "Aether"  # Direct search for AI name
+            ])
+        
+        # User name queries
+        if any(phrase in query_lower for phrase in ["my name", "remember my name", "know my name", "what's my name", "who am i"]):
+            expanded.extend([
+                "user name",
+                "user's name",
+                "name is Mark",
+                "Mark user human",
+                "called Mark",
+                "user identity"
             ])
         
         # Identity/description queries

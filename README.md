@@ -17,7 +17,13 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.42.0)
+### Current Release (v0.42.2)
+- **UI State Fixes**: Multiple fixes for classification and frame state
+  - Classification spinner now correctly disappears when Stage 1 begins
+  - Tool steps collapse correctly for saved conversations
+  - Memory name search now handles user name queries properly
+
+### Previous Release (v0.42.0)
 - **Auto-Collapse Frames on Completion**: Tool steps and deliberation frames now auto-collapse
   - Tool steps collapse when response completes (streaming → complete transition)
   - Deliberation sections start closed (`open={false}`) for completed conversations
@@ -31,12 +37,6 @@ In a bit more detail, here is what happens when you submit a query:
   - Classification badge correctly infers type from stored data
   - Tool results display execution time correctly
   - "Final Council Answer" only shows for deliberation responses
-
-### Previous Release (v0.41.2)
-- **Stage2 TypeError Fix**: Fixed crash when model values are undefined
-  - Handles undefined/null model values in `labelToModel` mapping
-  - Guards all `.split('/')` calls to prevent TypeError
-  - Affects: `deAnonymizeText`, tab labels, parsed rankings, aggregate rankings
 
 ### Previous Release (v0.41.0)
 

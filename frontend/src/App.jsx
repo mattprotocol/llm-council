@@ -271,11 +271,11 @@ function App() {
             break;
 
           case 'classification_complete':
-            // Classification complete - store result
+            // Classification complete - store result with status
             setCurrentConversation((prev) => {
               const messages = [...(prev?.messages || [])];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.classification = event.classification;
+              lastMsg.classification = { ...event.classification, status: 'complete' };
               return { ...prev, messages };
             });
             break;
@@ -911,7 +911,7 @@ function App() {
           setCurrentConversation((prev) => {
             const messages = [...(prev?.messages || [])];
             const lastMsg = messages[messages.length - 1];
-            lastMsg.classification = event.classification;
+            lastMsg.classification = { ...event.classification, status: 'complete' };
             return { ...prev, messages };
           });
           break;

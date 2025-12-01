@@ -335,7 +335,7 @@ export default function ChatInterface({
                   {(msg.toolSteps && msg.toolSteps.length > 0) && (
                     <ToolSteps 
                       toolSteps={msg.toolSteps}
-                      isComplete={!!(msg.stage3 && !msg.streaming?.stage3?.isStreaming)}
+                      isComplete={!!msg.stage3 || !msg.streaming}
                     />
                   )}
 
