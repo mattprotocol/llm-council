@@ -4,6 +4,36 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.40.0
+**Branch:** `v0.40.0`  
+**Completed:** 2025-12-01 02:55 UTC | 2025-11-30 18:55 PST
+
+**Features:**
+- **Short-Term Memory System**: Automatic extraction and storage of relevant conversation information
+  - New FalkorDB graph (`llm_council_short_term`) for temporary memories
+  - LLM-powered extraction of key facts, names, dates, tasks from conversations
+  - Background cleanup task removes memories older than 3 days (TTL)
+  - Non-blocking async recording after each conversation turn
+
+- **Enhanced Stage 3 Synthesis**: Final council answer now uses best parts from ALL responses
+  - Explicit instructions to extract unique insights from EVERY council member
+  - Synthesis creates NEW response combining best elements, not just picking winner
+  - Better coverage of all perspectives from deliberation
+
+**Fixes:**
+- **Collapsible Deliberation Structure**: Stage 3 Final Answer now inside collapsible section
+  - All three stages (1, 2, 3) wrapped together in collapsed view
+  - "Final Council Answer" section shown OUTSIDE collapsible for visibility
+  - Clean separation of deliberation process and final result
+
+**Technical Details:**
+- `backend/memory_service.py` - New `ShortTermMemoryService` class with cleanup loop
+- `backend/main.py` - Initialize short-term memory and record after conversations
+- `backend/council.py` - Enhanced Stage 3 synthesis prompts for multi-response extraction
+- `frontend/src/components/ChatInterface.jsx` - Stage 3 inside collapsible deliberation
+
+---
+
 ### v0.39.0
 **Branch:** `v0.39.0`  
 **Completed:** 2025-11-30 18:10 UTC | 2025-11-30 10:10 PST

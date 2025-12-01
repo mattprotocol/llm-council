@@ -17,7 +17,24 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.39.0)
+### Current Release (v0.40.0)
+- **Short-Term Memory System**: Automatic extraction of relevant conversation information
+  - Stores key facts, names, dates, tasks discussed in conversations
+  - Uses dedicated FalkorDB graph (`llm_council_short_term`)
+  - Auto-cleanup of memories older than 3 days
+  - Non-blocking async recording after each conversation
+
+- **Enhanced Final Answer Synthesis**: Creates superior response from ALL council inputs
+  - Extracts best parts from every council member, not just the winner
+  - Combines unique insights, examples, and perspectives
+  - Rankings used to weight emphasis, not exclude contributions
+
+- **Improved Collapsible Structure**: Stage 3 now inside collapsed deliberation
+  - All three stages wrapped in collapsible for complete view
+  - Final Answer shown prominently OUTSIDE for visibility
+  - Better separation of process vs result
+
+### Previous Release (v0.39.0)
 - **Collapsible Deliberation Process**: Council deliberation auto-collapses when complete
   - Stage 1, 2, 3 wrapped in expandable `<details>` element
   - "Final Council Answer" displayed prominently outside collapsible

@@ -32,7 +32,7 @@ from .model_validator import validate_models
 from .config_loader import load_config, get_memory_config
 from .model_metrics import get_all_metrics, get_model_ranking, cleanup_invalid_models
 from .mcp.registry import get_mcp_registry, initialize_mcp, shutdown_mcp
-from .memory_service import get_memory_service, initialize_memory
+from .memory_service import get_memory_service, initialize_memory, get_short_term_memory_service, initialize_short_term_memory
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -108,6 +108,17 @@ async def lifespan(app: FastAPI):
             print("ℹ️  Memory service disabled in config")
     except Exception as e:
         print(f"⚠️  Memory initialization failed: {e} (continuing without memory)")
+    
+    # Initialize Short-Term Memory service
+    print("🧠 Initializing short-term memory service...")
+    try:
+        stm_available = await initialize_short_term_memory()
+        if stm_available:
+            print("✅ Short-term memory service initialized (TTL: 3 days)")
+        else:
+            print("ℹ️  Short-term memory unavailable")
+    except Exception as e:
+        print(f"⚠️  Short-term memory initialization failed: {e}")
     
     # Initialize Title generation service and scan for untitled conversations
     print("📝 Initializing title generation service...")
@@ -483,6 +494,15 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 stage3_result,
                 tool_result  # Include tool result for persistence
             )
+            
+            # Record to short-term memory (async, non-blocking)
+            stm_service = get_short_term_memory_service()
+            if stm_service._available:
+                asyncio.create_task(stm_service.extract_and_store_memories(
+                    request.content,
+                    stage3_result.get("response", ""),
+                    conversation_id
+                ))
 
             # Send completion event
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
@@ -908,6 +928,15 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                         stage3_result.get("model", "unknown"),
                         conversation_id
                     ))
+            
+            # Record to short-term memory (async, non-blocking)
+            stm_service = get_short_term_memory_service()
+            if stm_service._available and stage3_result:
+                asyncio.create_task(stm_service.extract_and_store_memories(
+                    user_query,
+                    stage3_result.get("response", ""),
+                    conversation_id
+                ))
 
             yield f"data: {json.dumps({'type': 'complete', 'response_type': 'deliberation'})}\n\n"
 

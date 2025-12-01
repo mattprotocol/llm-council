@@ -3075,6 +3075,16 @@ Council Responses:
 Rankings:
 {stage2_text}
 
+**SYNTHESIS INSTRUCTIONS:**
+1. DO NOT just pick the top-ranked response - instead, CREATE a NEW response
+2. Extract the BEST PARTS from EACH council response:
+   - Unique insights or perspectives not found in other responses
+   - Well-explained concepts or examples
+   - Accurate technical details
+   - Creative or practical suggestions
+3. Combine these best elements into a cohesive, comprehensive answer
+4. Use the rankings to weight which elements deserve more emphasis
+
 Present the council's best insights using rich formatting to maximize clarity and visual appeal:
 - Use **markdown tables** when comparing options, features, or data
 - Use **numbered lists** for step-by-step instructions or ranked items
@@ -3097,10 +3107,24 @@ STAGE 1 - Individual Responses:
 STAGE 2 - Peer Rankings:
 {stage2_text}
 
-Your task as Presenter is to synthesize all of this information into a single, expertly formatted answer. Consider:
-- The individual responses and their insights
-- The peer rankings and what they reveal about response quality
-- Any patterns of agreement or disagreement
+**CRITICAL SYNTHESIS INSTRUCTIONS:**
+Your task is NOT to simply pick the best-ranked response. Instead, you must CREATE a NEW, SUPERIOR response by:
+
+1. **Extract the best parts from EVERY response**, not just the top-ranked one:
+   - Unique insights or perspectives
+   - Well-explained concepts or examples
+   - Accurate technical details
+   - Creative or practical suggestions
+   
+2. **Use rankings as quality indicators**, but don't ignore lower-ranked responses:
+   - Even the lowest-ranked response may have unique valuable elements
+   - Look for points of agreement across responses
+   - Note where responses complement each other
+   
+3. **Synthesize into a cohesive whole**:
+   - Organize the best elements logically
+   - Remove redundancy while keeping comprehensive coverage
+   - Ensure the final answer addresses ALL aspects of the question
 
 **Formatting Requirements:**
 - Use **markdown tables** for comparisons, data, or structured information
@@ -3113,7 +3137,7 @@ Your task as Presenter is to synthesize all of this information into a single, e
 - Maximize use of visual structure to make the answer scannable and professional
 - **DO NOT include images or image links** - they cannot be rendered
 
-Provide an expertly formatted final answer that represents the council's collective wisdom:"""
+Provide an expertly formatted final answer that represents the COMBINED BEST WISDOM of ALL council members:"""
 
     messages = [{"role": "user", "content": chairman_prompt}]
     content = ""

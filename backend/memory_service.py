@@ -1042,3 +1042,283 @@ async def initialize_memory() -> bool:
         asyncio.create_task(service.load_names_from_memory())
     
     return result
+
+
+# ============== Short-Term Memory Service ==============
+
+SHORT_TERM_MEMORY_GROUP = "llm_council_short_term"
+SHORT_TERM_MEMORY_TTL_DAYS = 3
+
+
+class ShortTermMemoryService:
+    """
+    Service for managing short-term conversation memories with automatic cleanup.
+    
+    Stores relevant pieces of information discussed during conversations
+    and automatically removes memories older than TTL (default: 3 days).
+    """
+    
+    def __init__(self):
+        self._initialized = False
+        self._available = False
+        self._cleanup_task: Optional[asyncio.Task] = None
+        self._extraction_model: Optional[str] = None
+    
+    async def initialize(self) -> bool:
+        """Initialize the short-term memory service."""
+        if self._initialized:
+            return self._available
+        
+        # Check if Graphiti is available
+        registry = get_mcp_registry()
+        if "graphiti" not in registry.clients:
+            print("[ShortTermMemory] Graphiti not available - short-term memory disabled")
+            self._available = False
+            self._initialized = True
+            return False
+        
+        # Load extraction model from config
+        config = load_config()
+        self._extraction_model = config.get("models", {}).get("chairman", {}).get("id", "")
+        
+        self._available = True
+        self._initialized = True
+        print(f"[ShortTermMemory] Initialized with group: {SHORT_TERM_MEMORY_GROUP}")
+        
+        # Start cleanup task
+        self._start_cleanup_task()
+        
+        return True
+    
+    def _start_cleanup_task(self):
+        """Start the background cleanup task."""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+            print("[ShortTermMemory] Started cleanup task (runs every hour)")
+    
+    async def _cleanup_loop(self):
+        """Background loop that cleans up old memories every hour."""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Run every hour
+                await self.cleanup_old_memories()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(f"[ShortTermMemory] Cleanup error: {e}")
+                await asyncio.sleep(60)  # Wait a minute on error
+    
+    async def cleanup_old_memories(self) -> int:
+        """
+        Remove memories older than TTL from the short-term memory graph.
+        
+        Returns:
+            Number of memories removed
+        """
+        if not self._available:
+            return 0
+        
+        registry = get_mcp_registry()
+        cutoff_date = datetime.now() - timedelta(days=SHORT_TERM_MEMORY_TTL_DAYS)
+        cutoff_str = cutoff_date.isoformat()
+        
+        removed_count = 0
+        
+        try:
+            # Search for all episodes in the short-term group
+            result = await registry.call_tool("graphiti.search_facts", {
+                "query": "*",  # All facts
+                "group_ids": [SHORT_TERM_MEMORY_GROUP],
+                "max_facts": 1000
+            })
+            
+            facts = result.get("output", {}).get("structuredContent", {}).get("result", {})
+            if isinstance(facts, dict):
+                facts = facts.get("facts", [])
+            
+            for fact in facts:
+                if not isinstance(fact, dict):
+                    continue
+                
+                # Check created_at timestamp
+                created_at = fact.get("created_at", "")
+                uuid = fact.get("uuid", "")
+                
+                if created_at and uuid:
+                    try:
+                        # Parse ISO format datetime
+                        fact_date = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        if fact_date.replace(tzinfo=None) < cutoff_date:
+                            # Delete old fact
+                            await registry.call_tool("graphiti.delete_entity_edge", {
+                                "uuid": uuid
+                            })
+                            removed_count += 1
+                    except (ValueError, TypeError):
+                        pass
+            
+            if removed_count > 0:
+                print(f"[ShortTermMemory] Cleaned up {removed_count} memories older than {SHORT_TERM_MEMORY_TTL_DAYS} days")
+            
+        except Exception as e:
+            print(f"[ShortTermMemory] Error during cleanup: {e}")
+        
+        return removed_count
+    
+    async def extract_and_store_memories(
+        self,
+        user_query: str,
+        ai_response: str,
+        conversation_id: str
+    ) -> int:
+        """
+        Extract relevant information from a conversation turn and store in short-term memory.
+        
+        Uses LLM to identify key pieces of information that may be useful for
+        future conversations within the TTL window.
+        
+        Args:
+            user_query: The user's message
+            ai_response: The AI's response
+            conversation_id: ID of the conversation for context
+            
+        Returns:
+            Number of memories stored
+        """
+        if not self._available or not self._extraction_model:
+            return 0
+        
+        # Create extraction prompt
+        extraction_prompt = f"""Analyze this conversation turn and extract any pieces of information worth remembering short-term (3 days).
+
+USER MESSAGE:
+{user_query[:1000]}
+
+AI RESPONSE:
+{ai_response[:2000]}
+
+Extract information that would be useful to remember, such as:
+- Specific names, dates, or numbers mentioned
+- Tasks or plans discussed
+- Preferences expressed
+- Problems or issues raised
+- Key facts or decisions made
+
+Return ONLY a JSON array of memory strings. Each memory should be 1-2 sentences.
+If nothing is worth remembering, return an empty array: []
+
+Example output:
+["User mentioned a meeting on Friday at 2pm", "User prefers Python over JavaScript for this project"]
+
+JSON array:"""
+
+        try:
+            response = await query_model_with_retry(
+                self._extraction_model,
+                [{"role": "user", "content": extraction_prompt}],
+                temperature=0.3,
+                timeout=30.0
+            )
+            
+            if not response or not response.get("content"):
+                return 0
+            
+            content = response["content"].strip()
+            
+            # Parse JSON array
+            import re
+            array_match = re.search(r'\[.*\]', content, re.DOTALL)
+            if not array_match:
+                return 0
+            
+            memories = json.loads(array_match.group())
+            if not isinstance(memories, list) or not memories:
+                return 0
+            
+            # Store each memory
+            registry = get_mcp_registry()
+            stored_count = 0
+            
+            for memory_text in memories:
+                if not isinstance(memory_text, str) or not memory_text.strip():
+                    continue
+                
+                try:
+                    await registry.call_tool("graphiti.add_episode", {
+                        "name": f"conv_{conversation_id[:8]}_{stored_count}",
+                        "content": memory_text.strip(),
+                        "group_id": SHORT_TERM_MEMORY_GROUP,
+                        "source": "conversation",
+                        "source_description": f"Extracted from conversation {conversation_id}"
+                    })
+                    stored_count += 1
+                except Exception as e:
+                    print(f"[ShortTermMemory] Error storing memory: {e}")
+            
+            if stored_count > 0:
+                print(f"[ShortTermMemory] Stored {stored_count} memories from conversation {conversation_id[:8]}")
+            
+            return stored_count
+            
+        except Exception as e:
+            print(f"[ShortTermMemory] Extraction error: {e}")
+            return 0
+    
+    async def search_recent_context(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search short-term memory for recent relevant context.
+        
+        Args:
+            query: Search query
+            limit: Maximum results to return
+            
+        Returns:
+            List of relevant memories
+        """
+        if not self._available:
+            return []
+        
+        try:
+            registry = get_mcp_registry()
+            result = await registry.call_tool("graphiti.search_facts", {
+                "query": query,
+                "group_ids": [SHORT_TERM_MEMORY_GROUP],
+                "max_facts": limit
+            })
+            
+            facts = result.get("output", {}).get("structuredContent", {}).get("result", {})
+            if isinstance(facts, dict):
+                facts = facts.get("facts", [])
+            
+            memories = []
+            for fact in facts:
+                if isinstance(fact, dict):
+                    memories.append({
+                        "content": fact.get("fact", fact.get("content", "")),
+                        "created_at": fact.get("created_at", ""),
+                        "uuid": fact.get("uuid", "")
+                    })
+            
+            return memories
+            
+        except Exception as e:
+            print(f"[ShortTermMemory] Search error: {e}")
+            return []
+
+
+# Singleton instance for short-term memory
+_short_term_memory_service: Optional[ShortTermMemoryService] = None
+
+
+def get_short_term_memory_service() -> ShortTermMemoryService:
+    """Get the global short-term memory service instance."""
+    global _short_term_memory_service
+    if _short_term_memory_service is None:
+        _short_term_memory_service = ShortTermMemoryService()
+    return _short_term_memory_service
+
+
+async def initialize_short_term_memory() -> bool:
+    """Initialize the global short-term memory service."""
+    service = get_short_term_memory_service()
+    return await service.initialize()

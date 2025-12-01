@@ -452,13 +452,15 @@ export default function ChatInterface({
                               />
                             )}
 
-                            {/* Stage 3 inside collapsible when deliberating */}
+                            {/* Stage 3 loading */}
                             {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                               <div className="stage-loading">
                                 <div className="spinner"></div>
                                 <span>Running Stage 3: Final synthesis...</span>
                               </div>
                             )}
+                            
+                            {/* Stage 3 Final Answer - inside deliberation section */}
                             {(msg.stage3 || msg.streaming?.stage3?.content) && (
                               <Stage3 
                                 finalResponse={msg.stage3} 
@@ -469,6 +471,7 @@ export default function ChatInterface({
                           </>
                         );
 
+                        // When deliberation is complete, wrap everything in collapsible
                         if (isDeliberationComplete) {
                           return (
                             <details className="deliberation-collapsible">
@@ -483,6 +486,7 @@ export default function ChatInterface({
                             </details>
                           );
                         }
+                        // While deliberating, show all content expanded
                         return deliberationContent;
                       })()}
                     </>
