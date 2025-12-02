@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.42.8
+**Branch:** `v0.42.8`  
+**Completed:** 2025-12-02 04:05 UTC | 2025-12-01 20:05 PST
+
+**Fixes:**
+- **Improved Hermes Cleanup Script**: Rewrote `remove_hermes_nodes.py` to use direct FalkorDB access
+  - Previous MCP-based approach returned empty results despite data existing
+  - New script uses FalkorDB Python client for reliable node/edge deletion
+  - Searches all memory type graphs for Hermes references
+  - Successfully removed 64 nodes and 215 edges containing "Hermes"
+  - Verified: 0 Hermes nodes remaining across all graphs
+
 ### v0.42.7
 **Branch:** `v0.42.7`  
 **Completed:** 2025-12-02 03:40 UTC | 2025-12-01 19:40 PST
