@@ -438,7 +438,13 @@ Question: {user_query}
 
 {rich_time_context}
 
-Provide a helpful, accurate answer. Be conversational and concise."""
+Provide a helpful, accurate answer. Be conversational and concise.
+
+CRITICAL FORMATTING RULES FOR CONVERSATIONAL MESSAGES:
+- For greetings, casual chat, or simple questions: respond naturally WITHOUT bullet points or "Key points" sections
+- Do NOT add structured summaries like "Key points:", "Summary:", or numbered lists to casual messages
+- Match the tone of the user's message - casual gets casual, formal gets formal
+- Only use bullet points/structured formats when explaining complex topics or listing multiple items"""
     
     # Build messages with optional system message
     # Prepend memory context (AI/user names and behavioral preferences) if available

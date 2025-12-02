@@ -1164,6 +1164,7 @@ If confidence is below 0.7, set recommended_answer to null."""
             "user likes responses",
             "communication style",
             "response style",
+            "response tone",
             "user wants",
             "detailed explanations",
             "concise answers"

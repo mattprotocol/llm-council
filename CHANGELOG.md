@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.42.9
+**Branch:** `v0.42.9`  
+**Completed:** 2025-12-02 04:25 UTC | 2025-12-01 20:25 PST
+
+**Fixes:**
+- **Natural Conversational Responses**: Prevented LLM from adding structured "Key points" sections to casual messages
+  - Added explicit formatting rules to direct response prompt
+  - Instructs LLM to match user's tone (casual gets casual, formal gets formal)
+  - Only use bullet points for complex topics or multi-item lists
+- **Memory Tone Preference Search**: Added "response tone" to user preference queries
+  - Memory now searches for tone preferences in addition to style/communication preferences
+
 ### v0.42.8
 **Branch:** `v0.42.8`  
 **Completed:** 2025-12-02 04:05 UTC | 2025-12-01 20:05 PST
