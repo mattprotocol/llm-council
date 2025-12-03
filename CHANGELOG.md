@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.45.2
+**Branch:** `v0.45.2`  
+**Completed:** 2025-12-03 17:45 UTC | 2025-12-03 09:45 PST
+
+**Fixes:**
+- **Sidebar Title Refresh Reliability**: Improved title_complete event handling
+  - Added `conversation_id` to title_complete SSE events from backend
+  - Frontend uses explicit conversation_id from event (with fallback to closure)
+  - Added debug logging for conversations state changes
+  - Added detailed logging showing event/closure/used conversation IDs
+- This ensures sidebar title updates work reliably even in edge cases
+
 ### v0.45.1
 **Branch:** `v0.45.1`  
 **Completed:** 2025-12-03 17:30 UTC | 2025-12-03 09:30 PST

@@ -62,6 +62,11 @@ function App() {
     initializeApp();
   }, []);
 
+  // Debug: Log whenever conversations state changes
+  useEffect(() => {
+    console.log('[App] conversations state changed:', conversations.map(c => ({ id: c.id, title: c.title })));
+  }, [conversations]);
+
   // Load conversation details when selected
   useEffect(() => {
     if (currentConversationId) {
@@ -801,13 +806,24 @@ function App() {
 
           case 'title_complete':
             // Update conversation title in list
-            console.log('[App] title_complete event received:', { title: event.title, conversationId: currentConversationId });
-            if (event.title) {
-              setConversations(prev => prev.map(conv => 
-                conv.id === currentConversationId 
-                  ? { ...conv, title: event.title }
-                  : conv
-              ));
+            // Use conversation_id from event if available, fallback to currentConversationId
+            const titleConvId = event.conversation_id || currentConversationId;
+            console.log('[App] title_complete event received:', { title: event.title, eventConvId: event.conversation_id, closureConvId: currentConversationId, usingConvId: titleConvId });
+            if (event.title && titleConvId) {
+              setConversations(prev => {
+                console.log('[App] Updating conversations with new title:', { 
+                  eventTitle: event.title, 
+                  conversationId: titleConvId,
+                  prevConversations: prev.map(c => ({ id: c.id, title: c.title }))
+                });
+                const updated = prev.map(conv => 
+                  conv.id === titleConvId 
+                    ? { ...conv, title: event.title }
+                    : conv
+                );
+                console.log('[App] After update:', updated.map(c => ({ id: c.id, title: c.title })));
+                return updated;
+              });
             }
             break;
 
@@ -998,10 +1014,12 @@ function App() {
 
         case 'title_complete':
           // Update conversation title in list (for reruns with generic titles)
-          console.log('[App runCouncil] title_complete event received:', { title: event.title, conversationId: currentConversationId });
-          if (event.title) {
+          // Use conversation_id from event if available, fallback to currentConversationId
+          const runCouncilTitleConvId = event.conversation_id || currentConversationId;
+          console.log('[App runCouncil] title_complete event received:', { title: event.title, eventConvId: event.conversation_id, closureConvId: currentConversationId, usingConvId: runCouncilTitleConvId });
+          if (event.title && runCouncilTitleConvId) {
             setConversations(prev => prev.map(conv => 
-              conv.id === currentConversationId 
+              conv.id === runCouncilTitleConvId 
                 ? { ...conv, title: event.title }
                 : conv
             ));

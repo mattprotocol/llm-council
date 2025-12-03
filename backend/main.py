@@ -548,7 +548,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                     if new_title:
                         # Update conversation title immediately
                         storage.update_conversation_title(conversation_id, new_title)
-                        yield f"data: {json.dumps({'type': 'title_complete', 'title': new_title})}\n\n"
+                        yield f"data: {json.dumps({'type': 'title_complete', 'title': new_title, 'conversation_id': conversation_id})}\n\n"
                     else:
                         yield f"data: {json.dumps({'type': 'title_error', 'error': 'Failed to generate title'})}\n\n"
                         
@@ -708,7 +708,7 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                     if new_title:
                         storage.update_conversation_title(conversation_id, new_title)
                         print(f"[Title] Sending title_complete event: {new_title} for {conversation_id}")
-                        yield f"data: {json.dumps({'type': 'title_complete', 'title': new_title})}\n\n"
+                        yield f"data: {json.dumps({'type': 'title_complete', 'title': new_title, 'conversation_id': conversation_id})}\n\n"
                     else:
                         yield f"data: {json.dumps({'type': 'title_error', 'error': 'Failed to generate title'})}\n\n"
                         
