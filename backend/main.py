@@ -629,6 +629,42 @@ async def _check_and_update_title(
         print(f"[Title Evolution] Error checking title: {e}")
 
 
+async def _auto_generate_tags(
+    conversation_id: str,
+    user_message: str,
+    response: str
+):
+    """Helper to auto-generate tags for a conversation."""
+    try:
+        # Get existing tags from conversation
+        conversation = storage.get_conversation(conversation_id)
+        if not conversation:
+            return
+        
+        existing_tags = conversation.get("tags", [])
+        
+        # Skip if this is an auto-test conversation (already has system tags)
+        if any(t in ['#auto', '#test'] for t in existing_tags):
+            return
+        
+        # Generate new tags
+        new_tags = await tag_service.generate_tags(
+            user_message,
+            response,
+            existing_tags=existing_tags,
+            max_tags=3
+        )
+        
+        if new_tags:
+            # Merge with existing tags (no duplicates)
+            all_tags = list(set(existing_tags + new_tags))
+            conversation["tags"] = all_tags
+            storage.update_conversation(conversation_id, conversation)
+            print(f"[Auto-Tag] Added tags for {conversation_id[:8]}: {new_tags}")
+    except Exception as e:
+        print(f"[Auto-Tag] Error generating tags: {e}")
+
+
 @app.post("/api/conversations/{conversation_id}/message/stream-tokens")
 async def send_message_stream_tokens(conversation_id: str, request: SendMessageRequest):
     """
@@ -852,6 +888,11 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                             direct_result.get("response", "")
                         ))
                 
+                # Auto-generate tags (async, non-blocking)
+                asyncio.create_task(_auto_generate_tags(
+                    conversation_id, request.content, direct_result.get("response", "")
+                ))
+                
                 yield f"data: {json.dumps({'type': 'complete', 'response_type': 'direct'})}\n\n"
                 return
             
@@ -1062,6 +1103,11 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
                         conversation_id, current_title, request.content, 
                         stage3_result.get("response", "")
                     ))
+            
+            # Auto-generate tags (async, non-blocking)
+            asyncio.create_task(_auto_generate_tags(
+                conversation_id, request.content, stage3_result.get("response", "")
+            ))
 
             yield f"data: {json.dumps({'type': 'complete', 'response_type': 'deliberation'})}\n\n"
 

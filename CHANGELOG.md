@@ -4,6 +4,23 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.45.0
+**Branch:** `v0.45.0`  
+**Completed:** 2025-12-03 15:15 UTC | 2025-12-03 07:15 PST
+
+**Features:**
+- **CFS Groups Dropdown**: Custom groups shown in dropdown, default groups as tabs
+  - Default groups (All, User, Test) displayed as tab buttons
+  - Custom groups appear in "More ▾" dropdown menu
+  - Dropdown shows selected custom group name when active
+  - Click outside closes dropdown
+- **Auto-Tagging**: AI automatically generates tags after each response
+  - Async, non-blocking tag generation after message saved
+  - Runs for both direct responses and deliberation completions
+  - Skips system-tagged conversations (#auto, #test)
+  - Generates up to 3 relevant tags per exchange
+  - Tags merged with existing (no duplicates)
+
 ### v0.44.0
 **Branch:** `v0.44.0`  
 **Completed:** 2025-12-03 07:00 UTC | 2025-12-02 23:00 PST

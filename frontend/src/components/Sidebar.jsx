@@ -25,8 +25,10 @@ export default function Sidebar({
   
   // Conversation Filter System (CFS) state
   const [showCfsOverlay, setShowCfsOverlay] = useState(false);
+  const [showGroupsDropdown, setShowGroupsDropdown] = useState(false);
   const [activeFilterGroup, setActiveFilterGroup] = useState('user'); // Active group name - default to 'user'
   const cfsOverlayRef = useRef(null);
+  const groupsDropdownRef = useRef(null);
   const [isDeletingDuplicates, setIsDeletingDuplicates] = useState(false);
   
   // CFS custom groups (stored in localStorage)
@@ -233,6 +235,21 @@ export default function Sidebar({
   useEffect(() => {
     localStorage.setItem('llm-council-cfs-groups', JSON.stringify(cfsGroups));
   }, [cfsGroups]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (groupsDropdownRef.current && !groupsDropdownRef.current.contains(event.target)) {
+        setShowGroupsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Split groups into default and custom
+  const defaultGroups = cfsGroups.filter(g => g.isDefault);
+  const customGroups = cfsGroups.filter(g => !g.isDefault);
 
   // CFS group management functions
   const addGroup = () => {
@@ -497,7 +514,8 @@ export default function Sidebar({
       {/* Conversation Filter System (CFS) */}
       <div className="cfs-container">
         <div className="cfs-tabs">
-          {cfsGroups.map(group => (
+          {/* Default groups as tabs */}
+          {defaultGroups.map(group => (
             <button 
               key={group.name}
               className={`cfs-tab ${activeFilterGroup === group.name ? 'active' : ''}`}
@@ -507,6 +525,36 @@ export default function Sidebar({
               {group.label}
             </button>
           ))}
+          
+          {/* Custom groups dropdown */}
+          {customGroups.length > 0 && (
+            <div className="cfs-dropdown-container" ref={groupsDropdownRef}>
+              <button 
+                className={`cfs-tab cfs-dropdown-trigger ${customGroups.some(g => g.name === activeFilterGroup) ? 'active' : ''}`}
+                onClick={() => setShowGroupsDropdown(!showGroupsDropdown)}
+                title="More groups"
+              >
+                {customGroups.find(g => g.name === activeFilterGroup)?.label || 'More'} ▾
+              </button>
+              {showGroupsDropdown && (
+                <div className="cfs-dropdown-menu">
+                  {customGroups.map(group => (
+                    <button
+                      key={group.name}
+                      className={`cfs-dropdown-item ${activeFilterGroup === group.name ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveFilterGroup(group.name);
+                        setShowGroupsDropdown(false);
+                      }}
+                    >
+                      {group.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           <button 
             className="cfs-config-btn"
             onClick={() => setShowCfsOverlay(!showCfsOverlay)}

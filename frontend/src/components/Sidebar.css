@@ -270,6 +270,51 @@
   opacity: 1;
 }
 
+/* CFS Dropdown for custom groups */
+.cfs-dropdown-container {
+  position: relative;
+  flex: 1;
+}
+
+.cfs-dropdown-trigger {
+  width: 100%;
+}
+
+.cfs-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.cfs-dropdown-item {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.cfs-dropdown-item:hover {
+  background: #f0f0f0;
+}
+
+.cfs-dropdown-item.active {
+  background: #e3f2fd;
+  color: #1976d2;
+  font-weight: 500;
+}
+
 /* CFS Overlay */
 .cfs-overlay {
   position: absolute;

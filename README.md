@@ -17,7 +17,20 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.44.0)
+### Current Release (v0.45.0)
+- **CFS Groups Dropdown**: Custom filter groups shown in dropdown menu
+  - Default groups (All, User, Test) remain as tab buttons
+  - Custom groups appear in "More ▾" dropdown
+  - Dropdown shows active custom group name when selected
+  - Cleaner UI with less horizontal space used
+- **Auto-Tagging**: AI automatically generates tags after each response
+  - Runs async after message saved (non-blocking)
+  - Works for both direct responses and deliberation completions
+  - Generates up to 3 relevant tags per exchange
+  - Skips system-tagged conversations (#auto, #test)
+  - Tags merged with existing (no duplicates)
+
+### Previous Release (v0.44.0)
 - **Title Evolution System**: Auto-updates conversation titles when theme changes
   - 2-stage process: (1) Check if theme changed, (2) Generate new title if needed
   - Runs automatically after each response (async, non-blocking)
