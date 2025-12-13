@@ -4,6 +4,19 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.48.1
+**Branch:** `v0.48.1`  
+**Completed:** 2025-12-13 12:05 UTC | 2025-12-13 04:05 PST
+
+**Fixes:**
+- **"Last Tuesday" Date Calculation**: Fixed incorrect date calculation for day-of-week references
+  - Added support for "LAST MONDAY", "LAST TUESDAY", etc. in date resolution
+  - Added support for "THIS MONDAY", "NEXT MONDAY" patterns
+  - Updated orchestration prompt to show date reference keywords and examples
+  - Updated orchestration to use `weather.get-weather-for-date` instead of current weather
+  - Updated `needs_multi_tool_orchestration()` to detect day-of-week weather queries
+  - "Last Tuesday" from Dec 13 now correctly resolves to Dec 9, 2025 (not Dec 10)
+
 ### v0.48.0
 **Branch:** `v0.48.0`  
 **Completed:** 2025-12-13 10:10 UTC | 2025-12-13 02:10 PST

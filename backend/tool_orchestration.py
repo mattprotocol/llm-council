@@ -21,11 +21,18 @@ async def needs_multi_tool_orchestration(user_query: str) -> bool:
     Determine if a query requires multi-tool orchestration.
     
     Patterns that suggest multi-step execution:
-    - Time-relative queries (yesterday, last week, tomorrow)
+    - Time-relative queries (yesterday, last week, tomorrow, last Tuesday)
     - Queries combining location + time + data (weather, events)
     - Complex calculations requiring multiple inputs
     """
     query_lower = user_query.lower()
+    
+    # Day-of-week patterns (last tuesday, next monday, etc.)
+    day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    for day in day_names:
+        if f"last {day}" in query_lower or f"next {day}" in query_lower or f"this {day}" in query_lower:
+            if any(word in query_lower for word in ["weather", "forecast", "temperature", "rain"]):
+                return True
     
     # Time-relative patterns that need date calculation + another tool
     time_relative_patterns = [
@@ -115,31 +122,52 @@ Output ONLY valid JSON in this format:
   ]
 }}
 
+Date reference keywords (will be resolved automatically):
+- YESTERDAY, TODAY, TOMORROW
+- LAST WEEK, NEXT WEEK
+- LAST MONDAY, LAST TUESDAY, ... LAST SUNDAY (gets the most recent past occurrence)
+- THIS MONDAY, THIS TUESDAY, ... (gets this week's occurrence)
+- NEXT MONDAY, NEXT TUESDAY, ... (gets next week's occurrence)
+
 Example for "what was the weather yesterday?":
 {{
   "steps": [
     {{
       "step_number": 1,
-      "description": "Get current date and time",
-      "tool": "system-date-time.get-current-datetime",
-      "depends_on": [],
-      "parameters": {{}}
-    }},
-    {{
-      "step_number": 2,
       "description": "Get current location",
       "tool": "system-geo-location.get-geo-location",
       "depends_on": [],
       "parameters": {{}}
     }},
     {{
-      "step_number": 3,
+      "step_number": 2,
       "description": "Get weather for yesterday at current location",
-      "tool": "weather.get-weather",
-      "depends_on": [1, 2],
+      "tool": "weather.get-weather-for-date",
+      "depends_on": [1],
       "parameters": {{
-        "location": "$step_2.city",
         "date": "YESTERDAY"
+      }}
+    }}
+  ]
+}}
+
+Example for "what was the weather like last Tuesday?":
+{{
+  "steps": [
+    {{
+      "step_number": 1,
+      "description": "Get current location",
+      "tool": "system-geo-location.get-geo-location",
+      "depends_on": [],
+      "parameters": {{}}
+    }},
+    {{
+      "step_number": 2,
+      "description": "Get weather for last Tuesday at current location",
+      "tool": "weather.get-weather-for-date",
+      "depends_on": [1],
+      "parameters": {{
+        "date": "LAST TUESDAY"
       }}
     }}
   ]
@@ -172,7 +200,7 @@ Now create the plan for: "{user_query}"
 
 def resolve_date_reference(date_str: str, current_date: datetime) -> str:
     """
-    Resolve relative date references like YESTERDAY, LAST_WEEK, etc.
+    Resolve relative date references like YESTERDAY, LAST_WEEK, LAST TUESDAY, etc.
     """
     date_upper = date_str.upper().strip()
     
@@ -186,6 +214,42 @@ def resolve_date_reference(date_str: str, current_date: datetime) -> str:
         return (current_date - timedelta(weeks=1)).strftime("%Y-%m-%d")
     elif date_upper == "NEXT_WEEK" or date_upper == "NEXT WEEK":
         return (current_date + timedelta(weeks=1)).strftime("%Y-%m-%d")
+    
+    # Handle "LAST <DAYNAME>" patterns (e.g., LAST TUESDAY, LAST MONDAY)
+    day_names = {
+        "MONDAY": 0, "TUESDAY": 1, "WEDNESDAY": 2, "THURSDAY": 3,
+        "FRIDAY": 4, "SATURDAY": 5, "SUNDAY": 6
+    }
+    
+    for day_name, day_num in day_names.items():
+        if f"LAST {day_name}" in date_upper or f"LAST_{day_name}" in date_upper:
+            # Calculate last occurrence of this day
+            current_weekday = current_date.weekday()
+            days_ago = (current_weekday - day_num) % 7
+            if days_ago == 0:
+                days_ago = 7  # If today is that day, go back a week
+            target_date = current_date - timedelta(days=days_ago)
+            return target_date.strftime("%Y-%m-%d")
+        
+        # Handle "THIS <DAYNAME>" for upcoming day
+        if f"THIS {day_name}" in date_upper or f"THIS_{day_name}" in date_upper:
+            current_weekday = current_date.weekday()
+            days_until = (day_num - current_weekday) % 7
+            if days_until == 0:
+                days_until = 0  # Today is that day
+            target_date = current_date + timedelta(days=days_until)
+            return target_date.strftime("%Y-%m-%d")
+        
+        # Handle "NEXT <DAYNAME>" for next week's day
+        if f"NEXT {day_name}" in date_upper or f"NEXT_{day_name}" in date_upper:
+            current_weekday = current_date.weekday()
+            days_until = (day_num - current_weekday) % 7
+            if days_until == 0:
+                days_until = 7  # Next week's occurrence
+            else:
+                days_until += 7  # Go to next week
+            target_date = current_date + timedelta(days=days_until)
+            return target_date.strftime("%Y-%m-%d")
     
     # Return as-is if not a recognized reference
     return date_str
