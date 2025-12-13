@@ -441,15 +441,16 @@ Types (comma-separated):"""
                 "Aether"  # Direct search for AI name
             ])
         
-        # User name queries
-        if any(phrase in query_lower for phrase in ["my name", "remember my name", "know my name", "what's my name", "who am i"]):
+        # User name queries - expand with all variations
+        if any(phrase in query_lower for phrase in ["my name", "remember my name", "know my name", "what's my name", "who am i", "do you remember my name"]):
             expanded.extend([
                 "user name",
                 "user's name",
                 "name is Mark",
                 "Mark user human",
                 "called Mark",
-                "user identity"
+                "user identity",
+                "the user's name is"
             ])
         
         # Identity/description queries
@@ -681,7 +682,8 @@ Types (comma-separated):"""
                 "name again", "remind me your name"
             ])
             is_user_name_query = any(phrase in query_lower for phrase in [
-                "my name", "what's my name", "who am i", "remember my name"
+                "my name", "what's my name", "who am i", "remember my name",
+                "do you remember my name", "know my name", "what am i called"
             ])
             
             # Include cached AI name if relevant and not already in results
@@ -699,8 +701,9 @@ Types (comma-separated):"""
                     print(f"[Memory] Added cached AI name: {self._ai_name}")
             
             # Include cached user name if relevant and not already in results
+            # Insert at position 0 to ensure it's the most prominent memory for user name queries
             if is_user_name_query and self._user_name:
-                user_name_content = f"The user's name is {self._user_name}"
+                user_name_content = f"The user's name is {self._user_name}. When asked about 'my name', this refers to the USER's name."
                 if not any(self._user_name.lower() in m.get("content", "").lower() for m in memories):
                     memories.insert(0, {
                         "type": "cached",

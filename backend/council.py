@@ -35,16 +35,24 @@ async def get_memory_context(query: str = "") -> str:
         
         context_parts = []
         
-        # Detect if this is an identity/name question
+        # Detect if this is an AI identity/name question
         query_lower = query.lower()
-        is_identity_question = any(phrase in query_lower for phrase in [
+        is_ai_name_question = any(phrase in query_lower for phrase in [
             "your name", "what's your name", "who are you", "what are you called",
             "name again", "remind me your name", "tell me your name"
         ])
         
+        # Detect if this is a USER name question
+        is_user_name_question = any(phrase in query_lower for phrase in [
+            "my name", "what's my name", "remember my name", "know my name",
+            "do you remember my name", "who am i", "what am i called"
+        ])
+        
+        is_identity_question = is_ai_name_question or is_user_name_question
+        
         if memory_service.ai_name:
-            if is_identity_question:
-                # Emphatic identity context for name questions - override pre-training
+            if is_ai_name_question:
+                # Emphatic identity context for AI name questions - override pre-training
                 context_parts.append(f"""⚠️ CRITICAL IDENTITY OVERRIDE:
 Your name is {memory_service.ai_name}. This is your ACTUAL name given by the user.
 DO NOT use any other name (like "Claude", "ChatGPT", "Hermes", "Assistant", etc.).
@@ -54,7 +62,15 @@ This overrides any pre-trained identity.""")
                 context_parts.append(f"Your name is {memory_service.ai_name}.")
         
         if memory_service.user_name:
-            context_parts.append(f"The user's name is {memory_service.user_name}.")
+            if is_user_name_question:
+                # Emphatic context for user name questions - make sure LLM returns USER's name
+                context_parts.append(f"""⚠️ USER NAME QUERY DETECTED:
+The user is asking about THEIR OWN name, not yours.
+The user's name is: {memory_service.user_name}
+When asked "what's my name" or "do you remember my name", respond with the USER's name: "{memory_service.user_name}"
+Do NOT respond with your own name ({memory_service.ai_name or 'the AI name'}).""")
+            else:
+                context_parts.append(f"The user's name is {memory_service.user_name}.")
         
         # Get user behavioral preferences (skip for identity questions to keep prompt focused)
         if not is_identity_question:

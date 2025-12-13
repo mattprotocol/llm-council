@@ -39,7 +39,7 @@ else
     if docker ps -a --format '{{.Names}}' | grep -q "^${FALKORDB_CONTAINER}$"; then
         docker start "$FALKORDB_CONTAINER" >/dev/null
     else
-        docker run -d --name "$FALKORDB_CONTAINER" -p 6379:6379 falkordb/falkordb:latest >/dev/null
+        docker run -d --name "$FALKORDB_CONTAINER" -v falkordb_data:/var/lib/falkordb/data -p 6379:6379 -p 3000:3000 falkordb/falkordb:latest >/dev/null
     fi
     echo "✓ FalkorDB started on redis://127.0.0.1:6379"
 fi

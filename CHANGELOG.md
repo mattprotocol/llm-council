@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.46.3
+**Branch:** `v0.46.3`  
+**Completed:** 2025-12-13 04:50 UTC | 2025-12-12 20:50 PST
+
+**Fixes:**
+- **User Name Query Returns AI Name**: Fixed "do you remember my name?" returning AI's name instead of user's name
+  - Root cause: `build_memory_context()` only detected AI name questions ("your name"), not user name questions ("my name")
+  - Added detection for user name question phrases: "my name", "what's my name", "remember my name", "who am i", etc.
+  - Added emphatic context for user name queries that explicitly distinguishes USER's name from AI's name
+  - Enhanced memory search to include "do you remember my name" as a trigger phrase
+  - Memory content now explicitly notes "When asked about 'my name', this refers to the USER's name"
+
 ### v0.46.2
 **Branch:** `v0.46.2`  
 **Completed:** 2025-12-13 03:35 UTC | 2025-12-12 19:35 PST
