@@ -255,10 +255,31 @@ def resolve_date_reference(date_str: str, current_date: datetime) -> str:
     return date_str
 
 
+def is_date_reference(value: str) -> bool:
+    """Check if a value looks like a date reference that should be resolved."""
+    value_upper = value.upper().strip()
+    
+    # Simple date references
+    if value_upper in ["YESTERDAY", "TODAY", "TOMORROW", "LAST_WEEK", "NEXT_WEEK", "LAST WEEK", "NEXT WEEK"]:
+        return True
+    
+    # Day-of-week references
+    day_names = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+    for day in day_names:
+        if f"LAST {day}" in value_upper or f"LAST_{day}" in value_upper:
+            return True
+        if f"THIS {day}" in value_upper or f"THIS_{day}" in value_upper:
+            return True
+        if f"NEXT {day}" in value_upper or f"NEXT_{day}" in value_upper:
+            return True
+    
+    return False
+
+
 def resolve_step_references(parameters: Dict, step_results: Dict[int, Any], current_date: datetime = None) -> Dict:
     """
     Resolve $step_N references in parameters to actual values from previous steps.
-    Also resolves date references like YESTERDAY.
+    Also resolves date references like YESTERDAY, LAST TUESDAY, etc.
     """
     resolved = {}
     
@@ -284,9 +305,11 @@ def resolve_step_references(parameters: Dict, step_results: Dict[int, Any], curr
                     print(f"[Orchestration] Failed to resolve {value}: {e}")
                     resolved[key] = value
             
-            # Check for date references
-            elif current_date and value.upper() in ["YESTERDAY", "TODAY", "TOMORROW", "LAST_WEEK", "NEXT_WEEK", "LAST WEEK", "NEXT WEEK"]:
-                resolved[key] = resolve_date_reference(value, current_date)
+            # Check for date references (including day-of-week)
+            elif current_date and is_date_reference(value):
+                resolved_date = resolve_date_reference(value, current_date)
+                print(f"[Orchestration] Resolved date '{value}' -> '{resolved_date}'")
+                resolved[key] = resolved_date
             else:
                 resolved[key] = value
         else:

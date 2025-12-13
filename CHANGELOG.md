@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.48.2
+**Branch:** `v0.48.2`  
+**Completed:** 2025-12-13 12:20 UTC | 2025-12-13 04:20 PST
+
+**Fixes:**
+- **Day-of-Week Date Resolution in Parameters**: Fixed date references not being resolved in tool parameters
+  - Added `is_date_reference()` helper function to detect all date reference patterns
+  - Updated `resolve_step_references()` to use the new helper function
+  - Now correctly resolves "LAST TUESDAY", "NEXT FRIDAY", "THIS MONDAY" etc. in parameters
+  - Added debug logging to show date resolution: `[Orchestration] Resolved date 'LAST TUESDAY' -> '2025-12-09'`
+  - Previously only checked for simple patterns (YESTERDAY, LAST_WEEK) but not day-of-week patterns
+
 ### v0.48.1
 **Branch:** `v0.48.1`  
 **Completed:** 2025-12-13 12:05 UTC | 2025-12-13 04:05 PST
