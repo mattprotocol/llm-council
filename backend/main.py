@@ -219,16 +219,30 @@ async def get_memory_status():
 
 @app.get("/api/memory/names")
 async def get_memory_names():
-    """Get user and AI names from memory."""
+    """Get user and AI names from memory, with config fallback."""
+    from .config_loader import load_config
+    
     memory_service = get_memory_service()
+    config = load_config()
+    memory_config = config.get("memory", {})
     
     # Wait for names to be loaded (with timeout)
     await memory_service.wait_for_names(timeout=5.0)
     
+    # Use memory names if available, otherwise fall back to config defaults
+    user_name = memory_service.user_name
+    ai_name = memory_service.ai_name
+    
+    if not user_name:
+        user_name = memory_config.get("default_user_name")
+    if not ai_name:
+        ai_name = memory_config.get("default_ai_name")
+    
     return {
-        "user_name": memory_service.user_name,
-        "ai_name": memory_service.ai_name,
-        "loaded": memory_service.names_loaded
+        "user_name": user_name,
+        "ai_name": ai_name,
+        "loaded": memory_service.names_loaded,
+        "from_memory": bool(memory_service.user_name or memory_service.ai_name)
     }
 
 

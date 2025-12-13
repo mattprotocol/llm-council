@@ -4,6 +4,18 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.46.1
+**Branch:** `v0.46.1`  
+**Completed:** 2025-12-13 02:46 UTC | 2025-12-12 18:46 PST
+
+**Fixes:**
+- **Name Tags Showing Defaults**: Fixed issue where "User"/"Assistant" was shown instead of actual names
+  - Root cause: When Graphiti memory service is unavailable, names returned as `null`
+  - Added `default_user_name` and `default_ai_name` config options in `config.json`
+  - Backend now falls back to config defaults when memory service is unavailable
+  - Default names configured as "Mark" (user) and "Aether" (AI)
+  - API response now includes `from_memory` flag to indicate source
+
 ### v0.46.0
 **Branch:** `v0.46.0`  
 **Completed:** 2025-12-13 02:15 UTC | 2025-12-12 18:15 PST
