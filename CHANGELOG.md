@@ -4,6 +4,19 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.48.0
+**Branch:** `v0.48.0`  
+**Completed:** 2025-12-13 10:10 UTC | 2025-12-13 02:10 PST
+
+**Features:**
+- **Weather Date Tool**: Added `get-weather-for-date` tool to weather MCP server
+  - Supports historical weather data (past dates back to 1940)
+  - Supports weather forecasts (up to 16 days ahead)
+  - Optional hour parameter for specific time weather
+  - Returns daily summary (high/low, conditions, precipitation)
+  - Uses Open-Meteo Historical and Forecast APIs
+  - Updated mcp_servers.json description to reflect new capability
+
 ### v0.47.5
 **Branch:** `v0.47.5`  
 **Completed:** 2025-12-13 09:12 UTC | 2025-12-13 01:12 PST

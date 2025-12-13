@@ -47,7 +47,7 @@
       "name": "weather",
       "command": ["python3", "-m", "mcp_servers.weather.server"],
       "port": null,
-      "description": "Current weather conditions - temperature, precipitation, wind, humidity, and forecast"
+      "description": "Weather conditions - current, historical (past dates), and forecast (up to 16 days ahead)"
     },
     {
       "name": "sequential-thinking",

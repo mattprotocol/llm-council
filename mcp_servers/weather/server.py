@@ -226,6 +226,183 @@ def get_current_weather(latitude: Optional[float] = None, longitude: Optional[fl
         return {"success": False, "error": str(e)}
 
 
+def get_weather_for_date(
+    date: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    hour: Optional[int] = None
+) -> Dict[str, Any]:
+    """Get weather for a specific date (historical or forecast).
+    
+    Args:
+        date: Date in YYYY-MM-DD format
+        latitude: Optional latitude (uses IP location if not provided)
+        longitude: Optional longitude (uses IP location if not provided)
+        hour: Optional hour (0-23) for specific time, otherwise returns daily summary
+    
+    Uses Open-Meteo API for historical data and forecasts.
+    Historical data available from 1940 to present.
+    Forecast available up to 16 days ahead.
+    """
+    try:
+        location_info = {}
+        
+        # Get coordinates
+        if latitude is None or longitude is None:
+            geo = get_coordinates_from_ip()
+            if not geo:
+                return {"success": False, "error": "Could not determine location"}
+            latitude = geo['latitude']
+            longitude = geo['longitude']
+            location_info = {
+                'city': geo.get('city'),
+                'region': geo.get('region'),
+                'country': geo.get('country')
+            }
+        
+        # Validate date format
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return {"success": False, "error": f"Invalid date format. Use YYYY-MM-DD (got: {date})"}
+        
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        days_diff = (target_date - today).days
+        
+        # Determine if historical or forecast
+        is_historical = days_diff < 0
+        
+        if is_historical:
+            # Use Open-Meteo Historical API
+            url = (
+                f"https://archive-api.open-meteo.com/v1/archive?"
+                f"latitude={latitude}&longitude={longitude}"
+                f"&start_date={date}&end_date={date}"
+                f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,"
+                f"precipitation,rain,weather_code,wind_speed_10m"
+                f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+                f"weather_code,wind_speed_10m_max"
+                f"&temperature_unit=fahrenheit"
+                f"&wind_speed_unit=mph"
+                f"&precipitation_unit=inch"
+                f"&timezone=auto"
+            )
+        else:
+            # Use Open-Meteo Forecast API
+            if days_diff > 16:
+                return {"success": False, "error": f"Forecast only available up to 16 days ahead (requested {days_diff} days)"}
+            
+            url = (
+                f"https://api.open-meteo.com/v1/forecast?"
+                f"latitude={latitude}&longitude={longitude}"
+                f"&start_date={date}&end_date={date}"
+                f"&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,"
+                f"precipitation_probability,precipitation,rain,weather_code,wind_speed_10m"
+                f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,"
+                f"precipitation_probability_max,weather_code,wind_speed_10m_max"
+                f"&temperature_unit=fahrenheit"
+                f"&wind_speed_unit=mph"
+                f"&precipitation_unit=inch"
+                f"&timezone=auto"
+            )
+        
+        req = urllib.request.Request(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0 (compatible; LLMCouncil/1.0)'}
+        )
+        
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        
+        hourly = data.get('hourly', {})
+        daily = data.get('daily', {})
+        
+        # Build result
+        result_data = {
+            "date": date,
+            "location": location_info,
+            "is_historical": is_historical,
+            "data_type": "historical" if is_historical else "forecast"
+        }
+        
+        # Daily summary
+        if daily:
+            temp_max = daily.get('temperature_2m_max', [None])[0]
+            temp_min = daily.get('temperature_2m_min', [None])[0]
+            precip = daily.get('precipitation_sum', [0])[0]
+            weather_code = daily.get('weather_code', [0])[0]
+            wind_max = daily.get('wind_speed_10m_max', [None])[0]
+            
+            result_data["daily"] = {
+                "high": temp_max,
+                "low": temp_min,
+                "conditions": get_weather_description(weather_code or 0),
+                "precipitation": precip,
+                "wind_max": wind_max
+            }
+        
+        # Specific hour if requested
+        if hour is not None and hourly:
+            times = hourly.get('time', [])
+            hour_idx = None
+            for i, t in enumerate(times):
+                if f"T{hour:02d}:" in t:
+                    hour_idx = i
+                    break
+            
+            if hour_idx is not None:
+                result_data["hourly"] = {
+                    "hour": hour,
+                    "time": times[hour_idx],
+                    "temperature": hourly.get('temperature_2m', [])[hour_idx] if hour_idx < len(hourly.get('temperature_2m', [])) else None,
+                    "feels_like": hourly.get('apparent_temperature', [])[hour_idx] if hour_idx < len(hourly.get('apparent_temperature', [])) else None,
+                    "humidity": hourly.get('relative_humidity_2m', [])[hour_idx] if hour_idx < len(hourly.get('relative_humidity_2m', [])) else None,
+                    "conditions": get_weather_description(hourly.get('weather_code', [])[hour_idx] if hour_idx < len(hourly.get('weather_code', [])) else 0),
+                    "precipitation": hourly.get('precipitation', [])[hour_idx] if hour_idx < len(hourly.get('precipitation', [])) else None,
+                    "wind_speed": hourly.get('wind_speed_10m', [])[hour_idx] if hour_idx < len(hourly.get('wind_speed_10m', [])) else None
+                }
+        
+        # Build human-friendly summary
+        summary_parts = []
+        
+        # Location
+        if location_info.get('city'):
+            loc_str = location_info['city']
+            if location_info.get('region'):
+                loc_str += f", {location_info['region']}"
+            summary_parts.append(f"Weather for {date} in {loc_str}")
+        else:
+            summary_parts.append(f"Weather for {date}")
+        
+        summary_parts.append(f"Data type: {'Historical' if is_historical else 'Forecast'}")
+        
+        if result_data.get("daily"):
+            d = result_data["daily"]
+            summary_parts.append(f"Conditions: {d.get('conditions', 'Unknown')}")
+            summary_parts.append(f"High: {d.get('high')}°F, Low: {d.get('low')}°F")
+            if d.get('precipitation', 0) > 0:
+                summary_parts.append(f"Precipitation: {d.get('precipitation')} inches")
+            if d.get('wind_max'):
+                summary_parts.append(f"Max wind: {d.get('wind_max')} mph")
+        
+        if result_data.get("hourly"):
+            h = result_data["hourly"]
+            summary_parts.append(f"At {hour}:00: {h.get('temperature')}°F, {h.get('conditions')}")
+        
+        return {
+            "success": True,
+            "summary": "\n".join(summary_parts),
+            "data": result_data
+        }
+        
+    except urllib.error.URLError as e:
+        return {"success": False, "error": f"Network error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        return {"success": False, "error": f"Failed to parse response: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # Tool definitions
 TOOLS = [
     {
@@ -244,6 +421,32 @@ TOOLS = [
                 }
             },
             "required": []
+        }
+    },
+    {
+        "name": "get-weather-for-date",
+        "description": "Get weather for a specific date. Supports historical data (past dates back to 1940) and forecasts (up to 16 days ahead). Returns daily summary or specific hour if requested.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date in YYYY-MM-DD format (e.g., 2025-12-12 for yesterday, 2025-12-14 for tomorrow)"
+                },
+                "latitude": {
+                    "type": "number",
+                    "description": "Latitude (optional - uses IP location if not provided)"
+                },
+                "longitude": {
+                    "type": "number",
+                    "description": "Longitude (optional - uses IP location if not provided)"
+                },
+                "hour": {
+                    "type": "integer",
+                    "description": "Hour of day (0-23) for specific time weather (optional - returns daily summary if not provided)"
+                }
+            },
+            "required": ["date"]
         }
     }
 ]
@@ -284,6 +487,13 @@ def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 result = get_current_weather(
                     latitude=arguments.get("latitude"),
                     longitude=arguments.get("longitude")
+                )
+            elif tool_name == "get-weather-for-date":
+                result = get_weather_for_date(
+                    date=arguments.get("date"),
+                    latitude=arguments.get("latitude"),
+                    longitude=arguments.get("longitude"),
+                    hour=arguments.get("hour")
                 )
             else:
                 response["error"] = {
