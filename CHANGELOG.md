@@ -4,6 +4,17 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.47.3
+**Branch:** `v0.47.3`  
+**Completed:** 2025-12-13 08:50 UTC | 2025-12-13 00:50 PST
+
+**Fixes:**
+- **Name Tags Loading Reliability**: Fixed names showing "User"/"Assistant" instead of actual names
+  - Changed memory names loading from non-blocking `.then()` to `await` in initialization
+  - Added validation to ensure names are not null before setting state
+  - Added debug logging for memoryNames state changes to help diagnose issues
+  - Backend was correctly returning names; issue was frontend async timing
+
 ### v0.47.2
 **Branch:** `v0.47.2`  
 **Completed:** 2025-12-13 06:30 UTC | 2025-12-12 22:30 PST

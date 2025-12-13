@@ -24,13 +24,17 @@ function App() {
         const convs = await loadConversations(true);  // throwOnError=true during init
         console.log('[App] Loaded', convs?.length || 0, 'conversations');
         
-        // Load names from memory (background, non-blocking)
-        api.getMemoryNames().then(names => {
+        // Load names from memory - await to ensure state is set before continuing
+        try {
+          const names = await api.getMemoryNames();
           console.log('[App] Loaded memory names:', names);
-          setMemoryNames(names);
-        }).catch(err => {
+          if (names && (names.user_name || names.ai_name)) {
+            setMemoryNames(names);
+          }
+        } catch (err) {
           console.warn('[App] Failed to load memory names:', err);
-        });
+          // Will use defaults from config or fallback to "User"/"Assistant"
+        }
         
         // Restore last viewed conversation from localStorage
         const lastConversationId = localStorage.getItem('lastConversationId');
@@ -66,6 +70,11 @@ function App() {
   useEffect(() => {
     console.log('[App] conversations state changed:', conversations.map(c => ({ id: c.id, title: c.title })));
   }, [conversations]);
+
+  // Debug: Log whenever memoryNames changes
+  useEffect(() => {
+    console.log('[App] memoryNames state changed:', memoryNames);
+  }, [memoryNames]);
 
   // Load conversation details when selected
   useEffect(() => {
