@@ -21,7 +21,7 @@ kill_port() {
 # Track started Docker containers
 STARTED_CONTAINERS=()
 
-# Clean up function - stops all processes and Docker containers we started
+# Clean up function - stops and removes all processes and Docker containers we started
 cleanup() {
     echo ""
     echo "Stopping servers..."
@@ -29,16 +29,17 @@ cleanup() {
     # Stop backend and frontend
     kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
     
-    # Stop Docker containers that we started
+    # Stop and remove Docker containers that we started
     if [ ${#STARTED_CONTAINERS[@]} -gt 0 ]; then
-        echo "Stopping Docker containers..."
+        echo "Stopping and removing Docker containers..."
         for container in "${STARTED_CONTAINERS[@]}"; do
-            if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
-                echo "  Stopping $container..."
+            if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+                echo "  Removing $container..."
                 docker stop "$container" >/dev/null 2>&1
+                docker rm "$container" >/dev/null 2>&1
             fi
         done
-        echo "✓ Docker containers stopped"
+        echo "✓ Docker containers removed"
     fi
     
     exit 0
@@ -107,7 +108,7 @@ echo "  Backend:  http://localhost:8001"
 echo "  Frontend: http://localhost:5173"
 echo "  Graphiti: http://localhost:8000/mcp/"
 echo ""
-echo "Press ESC or Ctrl+C to stop all servers and Docker containers"
+echo "Press ESC or Ctrl+C to stop all servers and remove Docker containers"
 
 # Trap signals
 trap cleanup SIGINT SIGTERM

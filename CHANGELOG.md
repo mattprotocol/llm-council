@@ -4,6 +4,16 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.47.4
+**Branch:** `v0.47.4`  
+**Completed:** 2025-12-13 08:58 UTC | 2025-12-13 00:58 PST
+
+**Fixes:**
+- **Docker Container Removal on Exit**: Containers now deleted (not just stopped) on app exit
+  - Updated cleanup function to use `docker rm` after `docker stop`
+  - Changed check from running containers only to all containers (`docker ps -a`)
+  - Updated exit message to say "remove" instead of "stop"
+
 ### v0.47.3
 **Branch:** `v0.47.3`  
 **Completed:** 2025-12-13 08:50 UTC | 2025-12-13 00:50 PST
