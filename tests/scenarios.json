@@ -146,6 +146,17 @@
       },
       "tags": ["mcp", "websearch", "current-events", "regression", "core"],
       "timeout_seconds": 120.0
+    },
+    {
+      "name": "yesterday_weather_orchestration",
+      "query": "What was the weather like yesterday?",
+      "expected_behavior": {
+        "has_content": true,
+        "no_refusal": true,
+        "not_contains": ["cannot access", "real-time", "don't have access"]
+      },
+      "tags": ["mcp", "orchestration", "multi-tool", "weather"],
+      "timeout_seconds": 180.0
     }
   ]
 }

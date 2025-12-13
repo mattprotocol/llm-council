@@ -1572,7 +1572,9 @@ async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] 
     Phase 1: Analyze the query to determine if MCP tools are needed
     Phase 2: Generate and execute the tool call if needed
     
-    Also supports deep research workflow for queries needing multiple sources.
+    Also supports:
+    - Deep research workflow for queries needing multiple sources
+    - Multi-tool orchestration for queries needing sequential tool calls
     
     Args:
         user_query: The user's question
@@ -1581,12 +1583,22 @@ async def check_and_execute_tools(user_query: str, on_event: Optional[Callable] 
     Returns:
         Tool execution result if tools were used, None otherwise
     """
+    from .tool_orchestration import needs_multi_tool_orchestration, execute_orchestrated_tools
+    
     registry = get_mcp_registry()
     
     # Quick pre-check: are there any tools available?
     if not registry.all_tools:
         print("[MCP] No tools available, skipping tool check")
         return None
+    
+    # Check if this query needs multi-tool orchestration (e.g., "yesterday's weather")
+    if await needs_multi_tool_orchestration(user_query):
+        print("[MCP] Query needs multi-tool orchestration")
+        orch_result = await execute_orchestrated_tools(user_query, on_event)
+        if orch_result and orch_result.get('success'):
+            return orch_result
+        print("[MCP] Orchestration failed, falling back to regular tool handling")
     
     # Check if this query needs deep research (multi-source)
     if await _needs_deep_research(user_query):

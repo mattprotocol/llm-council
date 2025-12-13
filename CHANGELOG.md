@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.47.0
+**Branch:** `v0.47.0`  
+**Completed:** 2025-12-13 05:15 UTC | 2025-12-12 21:15 PST
+
+**Features:**
+- **Multi-Tool Orchestration**: Added support for queries requiring multiple sequential tool calls
+  - Created `tool_orchestration.py` module with planning and execution logic
+  - Detects queries needing multi-step execution (e.g., "yesterday's weather")
+  - Uses LLM to create execution plan with tool sequence and dependencies
+  - Executes tools in order, passing results between steps
+  - Resolves relative date references (YESTERDAY, TOMORROW, LAST_WEEK, etc.)
+  - Resolves step references ($step_N.field) for parameter passing between tools
+  - Integrated into `check_and_execute_tools()` flow
+  - Added test scenario: "What was the weather like yesterday?"
+
 ### v0.46.3
 **Branch:** `v0.46.3`  
 **Completed:** 2025-12-13 04:50 UTC | 2025-12-12 20:50 PST
