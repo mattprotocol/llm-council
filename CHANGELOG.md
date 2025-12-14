@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.52.6
+**Branch:** `v0.52.6`  
+**Completed:** 2025-12-14 11:20 UTC | 2025-12-14 03:20 PST
+
+**Fixes:**
+- **Research Controller UI Events**: Added missing event handlers for Research Controller steps
+  - Added `research_intent_classification_start` and `research_intent_classification_complete` handlers
+  - Added `research_escalate_to_council` handler for internal escalation events
+  - Research Controller collapsible frame now shows:
+    - 🎯 Intent classification with result and reasoning
+    - 🧠 Memory search with facts/tools found
+    - 🔧 Tool executions with parameters
+    - 🔀 Escalation to Council with reason
+  - Added CSS styles for new step types
+
 ### v0.52.5
 **Branch:** `v0.52.5`  
 **Completed:** 2025-12-14 11:15 UTC | 2025-12-14 03:15 PST

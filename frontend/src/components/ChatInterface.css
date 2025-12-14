@@ -779,6 +779,25 @@
   color: #f44336;
 }
 
+/* Intent classification step styles */
+.intent-result {
+  font-weight: 600;
+  color: #1565c0;
+}
+
+.intent-reasoning {
+  font-size: 10px;
+  color: #666;
+  font-style: italic;
+  margin-left: 4px;
+}
+
+/* Escalate step styles */
+.escalate-reason {
+  color: #666;
+  font-style: italic;
+}
+
 .research-lessons {
   display: flex;
   align-items: center;

@@ -895,6 +895,55 @@ function App() {
             });
             break;
 
+          case 'research_intent_classification_start':
+            // Intent classification starting
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.researchSteps) lastMsg.researchSteps = [];
+              lastMsg.researchSteps.push({
+                type: 'intent_classification',
+                status: 'running',
+                timestamp: Date.now()
+              });
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_intent_classification_complete':
+            // Intent classification complete
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg.researchSteps) {
+                const step = lastMsg.researchSteps.find(s => s.type === 'intent_classification' && s.status === 'running');
+                if (step) {
+                  step.status = 'complete';
+                  step.intent = event.intent;
+                  step.reasoning = event.reasoning;
+                  step.tool_hints = event.tool_hints;
+                }
+              }
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_escalate_to_council':
+            // Research controller escalating to council (internal event)
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.researchSteps) lastMsg.researchSteps = [];
+              lastMsg.researchSteps.push({
+                type: 'escalate',
+                reason: event.reason,
+                status: 'complete',
+                timestamp: Date.now()
+              });
+              return { ...prev, messages };
+            });
+            break;
+
           case 'research_tool_execution_start':
             // Research controller executing a tool
             setCurrentConversation((prev) => {

@@ -396,6 +396,33 @@ export default function ChatInterface({
                                 </span>
                               </>
                             )}
+                            {step.type === 'intent_classification' && (
+                              <>
+                                <span className="step-icon">🎯</span>
+                                <span className="step-text">
+                                  Classifying intent
+                                  {step.status === 'complete' && step.intent && (
+                                    <span className="intent-result"> → {step.intent}</span>
+                                  )}
+                                  {step.status === 'complete' && step.reasoning && (
+                                    <span className="intent-reasoning"> ({step.reasoning})</span>
+                                  )}
+                                </span>
+                                <span className={`step-status ${step.status}`}>
+                                  {step.status === 'running' ? '...' : '✓'}
+                                </span>
+                              </>
+                            )}
+                            {step.type === 'escalate' && (
+                              <>
+                                <span className="step-icon">🔀</span>
+                                <span className="step-text">
+                                  Escalating to Council
+                                  {step.reason && <span className="escalate-reason">: {step.reason}</span>}
+                                </span>
+                                <span className={`step-status ${step.status}`}>✓</span>
+                              </>
+                            )}
                           </div>
                         ))}
                         {msg.researchResult?.lessons_learned?.length > 0 && (

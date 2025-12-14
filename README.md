@@ -17,7 +17,15 @@ In a bit more detail, here is what happens when you submit a query:
 
 ## Key Features
 
-### Current Release (v0.51.0)
+### Current Release (v0.52.6)
+- **Research Controller UI Improvements**: Enhanced visibility of Research Controller operations
+  - Intent classification step shows classification result and reasoning
+  - Memory search step shows facts and tools found
+  - Tool execution steps show tool name and parameters
+  - Escalation step shows reason for council handoff
+  - All steps displayed in collapsible Research Controller frame
+
+### Previous Release (v0.51.0)
 - **Self-Improving Research Controller**: Intelligent, learning conversation system with memory integration
   - Recursive research loop: Think → Research/Build/Answer (max 50 rounds)
   - Retrieves context from Graphiti memory before processing queries
@@ -26,7 +34,7 @@ In a bit more detail, here is what happens when you submit a query:
   - Knowledge categories: facts, processes, lessons, preferences, entities, relationships
   - Three decision paths: COMPLETE (answer from memory), USE EXISTING (use tool), BUILD NEW (create tool)
 
-### Previous Release (v0.50.1)
+### Previous Release (v0.50.x)
 - **MCP Dev Team Tool**: AI-driven MCP server development workflow
   - `software-dev-org.mcp-dev-team`: Automated MCP server development
   - Three LLM roles:
