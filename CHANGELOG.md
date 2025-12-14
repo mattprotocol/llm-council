@@ -4,6 +4,25 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.52.7
+**Branch:** `v0.52.7`  
+**Completed:** 2025-12-14 11:45 UTC | 2025-12-14 03:45 PST
+
+**Fixes:**
+- **Research Controller JSON Parsing Robustness**: Improved `get_llm_decision()` to handle malformed JSON responses
+  - Added `_extract_json_from_response()` with 4 extraction strategies:
+    1. Standard markdown ```json blocks
+    2. Generic code blocks
+    3. Finding JSON object within text
+    4. Common JSON syntax cleanup
+  - Added `_extract_decision_from_text()` for regex-based fallback when JSON fails
+    - Extracts status (WORKING/FINISHED/ESCALATE) from text patterns
+    - Detects ESCALATE indicators ("council", "deliberation", "beyond capabilities")
+    - Detects FINISHED with final_answer extraction
+    - Handles missing image tool case with clear escalation message
+  - Previously: RC would error out immediately on malformed JSON → fell back to MCP Phase 1 → "no tool needed"
+  - Now: RC extracts actionable information from malformed responses, provides helpful escalation messages
+
 ### v0.52.6
 **Branch:** `v0.52.6`  
 **Completed:** 2025-12-14 11:20 UTC | 2025-12-14 03:20 PST

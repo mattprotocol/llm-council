@@ -201,20 +201,126 @@ class SelfImprovingResearchController:
             
             if response and response.get('content'):
                 content = response['content']
-                # Try to parse JSON from response
-                try:
-                    if '```json' in content:
-                        content = content.split('```json')[1].split('```')[0]
-                    elif '```' in content:
-                        content = content.split('```')[1].split('```')[0]
-                    return json.loads(content)
-                except json.JSONDecodeError:
-                    return {"status": "ERROR", "error": "Could not parse LLM response as JSON", "raw": content}
+                
+                # Try to parse JSON from response with multiple strategies
+                parsed = self._extract_json_from_response(content)
+                if parsed:
+                    return parsed
+                
+                # If JSON parsing fails, try to extract meaning from the response
+                fallback = self._extract_decision_from_text(content, state)
+                if fallback:
+                    print(f"[Research Controller] Extracted decision from malformed response: {fallback.get('status')}")
+                    return fallback
+                
+                return {"status": "ERROR", "error": "Could not parse LLM response as JSON", "raw": content[:500]}
             
             return {"status": "ERROR", "error": "Empty LLM response"}
             
         except Exception as e:
             return {"status": "ERROR", "error": str(e)}
+    
+    def _extract_json_from_response(self, content: str) -> Optional[Dict[str, Any]]:
+        """Try multiple strategies to extract JSON from LLM response."""
+        # Strategy 1: Standard markdown json block
+        try:
+            if '```json' in content:
+                json_str = content.split('```json')[1].split('```')[0]
+                return json.loads(json_str.strip())
+        except (json.JSONDecodeError, IndexError):
+            pass
+        
+        # Strategy 2: Generic code block
+        try:
+            if '```' in content:
+                json_str = content.split('```')[1].split('```')[0]
+                return json.loads(json_str.strip())
+        except (json.JSONDecodeError, IndexError):
+            pass
+        
+        # Strategy 3: Find JSON object in content (look for { and })
+        try:
+            start = content.find('{')
+            end = content.rfind('}')
+            if start != -1 and end != -1 and end > start:
+                json_str = content[start:end+1]
+                return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+        
+        # Strategy 4: Try to fix common JSON issues
+        try:
+            # Remove leading/trailing whitespace and newlines
+            cleaned = content.strip()
+            # Remove any trailing commas before } or ]
+            cleaned = re.sub(r',(\s*[}\]])', r'\1', cleaned)
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+        
+        return None
+    
+    def _extract_decision_from_text(self, content: str, state: ResearchState) -> Optional[Dict[str, Any]]:
+        """Extract decision from malformed text response using regex patterns."""
+        content_lower = content.lower()
+        
+        # Check for status indicators
+        status_match = re.search(r'"status"\s*:\s*"(WORKING|FINISHED|ESCALATE)"', content, re.IGNORECASE)
+        status = status_match.group(1).upper() if status_match else None
+        
+        # Check for ESCALATE indicators
+        if not status and any(kw in content_lower for kw in ["escalate", "council", "deliberation", "beyond my capabilities"]):
+            status = "ESCALATE"
+        
+        # Check for FINISHED indicators
+        if not status and any(kw in content_lower for kw in ["final_answer", "here is the answer", "the answer is"]):
+            status = "FINISHED"
+        
+        # Check for BUILD/tool creation indicators
+        if not status and any(kw in content_lower for kw in ["build", "create tool", "mcp-dev-team", "need to build"]):
+            status = "WORKING"
+            # Try to extract tool action
+            tool_match = re.search(r'"name"\s*:\s*"([^"]+)"', content)
+            if tool_match:
+                return {
+                    "status": "WORKING",
+                    "thought_process": "Extracted from malformed response",
+                    "action": {"name": tool_match.group(1), "parameters": {}},
+                    "missing_information": []
+                }
+        
+        # If we identified a status, build a response
+        if status == "ESCALATE":
+            reason_match = re.search(r'"escalation_reason"\s*:\s*"([^"]*)"', content)
+            return {
+                "status": "ESCALATE",
+                "thought_process": "Extracted from malformed response",
+                "escalation_reason": reason_match.group(1) if reason_match else "Complex query requires council deliberation",
+                "missing_information": []
+            }
+        
+        if status == "FINISHED":
+            answer_match = re.search(r'"final_answer"\s*:\s*"([^"]*)"', content)
+            return {
+                "status": "FINISHED",
+                "thought_process": "Extracted from malformed response",
+                "final_answer": answer_match.group(1) if answer_match else None,
+                "lessons_learned": []
+            }
+        
+        # Check if no tool can help and we should escalate
+        if "no tool" in content_lower or "cannot" in content_lower or "unable" in content_lower:
+            query_lower = state.user_query.lower()
+            # Check if this is a capability request we can't fulfill
+            if any(kw in query_lower for kw in ["create an image", "generate an image", "draw", "make a picture"]):
+                return {
+                    "status": "ESCALATE",
+                    "thought_process": "No image generation tool available",
+                    "escalation_reason": "Image generation capability is not currently available. No image generation tool is configured.",
+                    "missing_information": ["image generation tool"]
+                }
+        
+        return None
     
     async def run_research_loop(self, query: str, on_event=None) -> Dict[str, Any]:
         """
