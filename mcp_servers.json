@@ -65,7 +65,7 @@
       "name": "software-dev-org",
       "command": ["python3", "-m", "mcp_servers.software_dev_org.server"],
       "port": null,
-      "description": "Software development tools - sandboxed execution, file management, project archiving"
+      "description": "Software development tools - sandboxed execution, file management, AI-driven MCP development workflow"
     },
     {
       "name": "graphiti",

@@ -4,6 +4,20 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.50.1
+**Branch:** `v0.50.1`  
+**Completed:** 2025-12-14 03:45 UTC | 2025-12-13 19:45 PST
+
+**Features:**
+- **MCP Dev Team Tool**: AI-driven MCP server development workflow
+  - `mcp-dev-team`: Automated MCP server development using LLM roles
+    - **Architect role**: Analyzes requirements, identifies tools needed, creates task lists
+    - **Engineer role**: Generates code files, creates run.sh for testing
+    - **QA role**: Archives project and tests in sandbox
+  - Three-phase workflow: Research/Planning → Development → Testing
+  - Returns integration instructions with mcp_servers.json snippet
+  - Uses configurable LLM models (defaults to chairman model)
+
 ### v0.50.0
 **Branch:** `v0.50.0`  
 **Completed:** 2025-12-14 03:30 UTC | 2025-12-13 19:30 PST

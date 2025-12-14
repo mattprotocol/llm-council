@@ -340,6 +340,217 @@ def create_archive(project_name: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+async def mcp_dev_team(query: str, config: Optional[Dict] = None) -> Dict[str, Any]:
+    """
+    AI-driven MCP server development workflow.
+    
+    Uses multiple LLM roles:
+    - software_architect: Analyzes requirements, creates task lists
+    - software_dev_engineer: Writes code
+    - qa_analyst: Tests and validates
+    
+    Args:
+        query: Description of the MCP server to develop
+        config: Optional config overrides for LLM roles
+    """
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    
+    try:
+        from backend.llm_interface import query_model
+        from backend.mcp_registry import get_mcp_registry
+    except ImportError as e:
+        return {"success": False, "error": f"Could not import backend modules: {e}"}
+    
+    log = []
+    log.append(f"[{datetime.now().isoformat()}] Starting MCP Dev Team for: {query[:100]}...")
+    
+    # Load config
+    config_path = Path(__file__).parent.parent.parent / "config.json"
+    try:
+        with open(config_path) as f:
+            app_config = json.load(f)
+    except Exception:
+        app_config = {}
+    
+    # Get LLM models (with fallbacks)
+    chairman = app_config.get("models", {}).get("chairman", {})
+    architect_model = config.get("software_architect", chairman) if config else chairman
+    engineer_model = config.get("software_dev_engineer", architect_model) if config else architect_model
+    qa_model = config.get("qa_analyst", architect_model) if config else architect_model
+    
+    # Phase 1: Research and Planning (max 50 rounds)
+    task_list = []
+    compiled_data = []
+    current_round = 0
+    max_rounds = 50
+    
+    log.append("Phase 1: Research and Planning")
+    
+    # Initial analysis with architect
+    architect_prompt = f"""You are a Software Architect analyzing a request to create an MCP (Model Context Protocol) server.
+
+REQUEST: {query}
+
+Analyze this request and:
+1. Identify what tools need to be created
+2. List any external APIs or services needed
+3. Create a task list for research and development
+
+Respond in JSON format:
+{{
+  "project_name": "suggested-project-name",
+  "tools_needed": ["tool1", "tool2"],
+  "external_apis": ["api1"],
+  "task_list": [
+    {{"id": 1, "type": "research|develop|test", "description": "..."}}
+  ],
+  "needs_research": true/false,
+  "research_queries": ["what to search for"]
+}}"""
+    
+    try:
+        response = await query_model(architect_model, [{"role": "user", "content": architect_prompt}], timeout=60)
+        if response and response.get('content'):
+            content = response['content']
+            # Try to parse JSON from response
+            try:
+                if '```json' in content:
+                    content = content.split('```json')[1].split('```')[0]
+                elif '```' in content:
+                    content = content.split('```')[1].split('```')[0]
+                analysis = json.loads(content)
+                task_list = analysis.get('task_list', [])
+                project_name = analysis.get('project_name', 'new-mcp-server')
+                log.append(f"Architect analysis complete: {len(task_list)} tasks identified")
+                log.append(f"Project name: {project_name}")
+            except json.JSONDecodeError:
+                log.append("Could not parse architect response as JSON")
+                project_name = "new-mcp-server"
+                task_list = [{"id": 1, "type": "develop", "description": query}]
+    except Exception as e:
+        log.append(f"Architect analysis failed: {e}")
+        project_name = "new-mcp-server"
+        task_list = [{"id": 1, "type": "develop", "description": query}]
+    
+    # Phase 2: Development (max 50 rounds)
+    log.append("Phase 2: Development")
+    
+    # Create development plan
+    dev_plan_prompt = f"""You are a Software Development Engineer.
+
+PROJECT: {project_name}
+ORIGINAL REQUEST: {query}
+TASK LIST: {json.dumps(task_list, indent=2)}
+
+Create a detailed development plan for an MCP server. Include:
+1. File structure
+2. Each file's content (complete Python code)
+3. A run.sh script for testing
+
+Respond in JSON format:
+{{
+  "files": [
+    {{"path": "server.py", "content": "...full code..."}},
+    {{"path": "run.sh", "content": "#!/bin/bash\\n..."}}
+  ],
+  "tool_definitions": [
+    {{"name": "tool-name", "description": "...", "parameters": {{}}}}
+  ]
+}}"""
+    
+    files_to_write = []
+    tool_definitions = []
+    
+    try:
+        response = await query_model(engineer_model, [{"role": "user", "content": dev_plan_prompt}], timeout=120)
+        if response and response.get('content'):
+            content = response['content']
+            try:
+                if '```json' in content:
+                    content = content.split('```json')[1].split('```')[0]
+                elif '```' in content:
+                    content = content.split('```')[1].split('```')[0]
+                dev_plan = json.loads(content)
+                files_to_write = dev_plan.get('files', [])
+                tool_definitions = dev_plan.get('tool_definitions', [])
+                log.append(f"Development plan created: {len(files_to_write)} files")
+            except json.JSONDecodeError:
+                log.append("Could not parse development plan as JSON")
+    except Exception as e:
+        log.append(f"Development planning failed: {e}")
+    
+    # Write files
+    written_files = []
+    for file_info in files_to_write:
+        file_path = file_info.get('path', '')
+        file_content = file_info.get('content', '')
+        if file_path and file_content:
+            result = write_file(project_name, file_path, file_content)
+            if result.get('success'):
+                written_files.append(file_path)
+                log.append(f"Wrote: {file_path}")
+    
+    # Phase 3: Testing (if we have files)
+    test_result = None
+    if written_files:
+        log.append("Phase 3: Testing")
+        
+        # Create archive
+        archive_result = create_archive(project_name)
+        if archive_result.get('success'):
+            log.append(f"Created archive: {archive_result.get('archive')}")
+            
+            # Run in sandbox (if run.sh exists)
+            if 'run.sh' in written_files:
+                test_result = safe_app_execution(archive_result.get('archive'))
+                if test_result.get('success'):
+                    log.append("Tests passed!")
+                else:
+                    log.append(f"Tests failed: {test_result.get('stderr', test_result.get('error', 'Unknown'))}")
+    
+    # Return results
+    return {
+        "success": True,
+        "project_name": project_name,
+        "files_created": written_files,
+        "tool_definitions": tool_definitions,
+        "test_result": {
+            "success": test_result.get('success') if test_result else None,
+            "stdout": test_result.get('stdout', '')[:1000] if test_result else None,
+            "stderr": test_result.get('stderr', '')[:500] if test_result else None
+        } if test_result else None,
+        "log": log,
+        "integration_instructions": f"""
+To integrate this MCP server:
+
+1. Add to mcp_servers.json:
+{{
+  "name": "{project_name}",
+  "command": ["python3", "-m", "mcp_servers.{project_name.replace('-', '_')}.server"],
+  "port": null,
+  "description": "{query[:100]}"
+}}
+
+2. Copy files from data/dev_projects/{project_name}/ to mcp_servers/{project_name.replace('-', '_')}/
+
+3. Restart the application
+"""
+    }
+
+
+def mcp_dev_team_sync(query: str, config: Optional[Dict] = None) -> Dict[str, Any]:
+    """Synchronous wrapper for mcp_dev_team."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    return loop.run_until_complete(mcp_dev_team(query, config))
+
+
 # Tool definitions
 TOOLS = [
     {
@@ -427,6 +638,20 @@ TOOLS = [
             },
             "required": ["project_name"]
         }
+    },
+    {
+        "name": "mcp-dev-team",
+        "description": "AI-driven MCP server development workflow. Uses architect, engineer, and QA LLM roles to analyze requirements, generate code, and test in a sandbox.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Description of the MCP server to develop (what tools it should provide, what it should do)"
+                }
+            },
+            "required": ["query"]
+        }
     }
 ]
 
@@ -477,6 +702,8 @@ def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 result = list_files(arguments.get("project_name"))
             elif tool_name == "create-archive":
                 result = create_archive(arguments.get("project_name"))
+            elif tool_name == "mcp-dev-team":
+                result = mcp_dev_team_sync(arguments.get("query"))
             else:
                 response["error"] = {"code": -32601, "message": f"Unknown tool: {tool_name}"}
                 return response
