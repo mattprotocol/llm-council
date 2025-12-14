@@ -4,6 +4,21 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.49.0
+**Branch:** `v0.49.0`  
+**Completed:** 2025-12-14 01:45 UTC | 2025-12-13 17:45 PST
+
+**Features:**
+- **Location-Time MCP Server**: New comprehensive server for location and time operations
+  - `get-coordinates-for-location`: Get lat/lon for a location name (uses OpenStreetMap Nominatim)
+  - `get-timezone-for-location`: Get timezone info for a location name
+  - `get-current-time-for-location`: Get current local time for a location
+  - `get-weather-for-location-and-date`: Get weather for location name and specific date (historical/forecast)
+  - `convert-datetime-between-timezones`: Convert datetime between timezones
+  - `calculate-datetime-offset`: Add/subtract days/hours/minutes from datetime
+  - `get-daylight-savings-info`: Get DST info for location and date
+  - Uses free APIs: Nominatim for geocoding, timeapi.io for timezone, Open-Meteo for weather
+
 ### v0.48.3
 **Branch:** `v0.48.3`  
 **Completed:** 2025-12-13 12:35 UTC | 2025-12-13 04:35 PST

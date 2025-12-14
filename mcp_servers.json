@@ -50,6 +50,12 @@
       "description": "Weather conditions - current, historical (past dates), and forecast (up to 16 days ahead)"
     },
     {
+      "name": "location-time",
+      "command": ["python3", "-m", "mcp_servers.location_time.server"],
+      "port": null,
+      "description": "Location and time utilities - geocoding, timezone conversion, weather by location name, DST info"
+    },
+    {
       "name": "sequential-thinking",
       "command": ["npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
       "transport": "stdio",

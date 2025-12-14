@@ -50,7 +50,7 @@ cleanup() {
         done
         echo "✓ Docker containers removed"
     fi
-    
+    echo -e "\n"
     exit 0
 }
 
