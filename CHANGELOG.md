@@ -4,6 +4,22 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.50.0
+**Branch:** `v0.50.0`  
+**Completed:** 2025-12-14 03:30 UTC | 2025-12-13 19:30 PST
+
+**Features:**
+- **Software Development Org MCP Server**: New server for sandboxed code execution and project management
+  - `safe-app-execution`: Execute code in sandboxed Docker container with resource limits
+    - Builds "llm-council-dev-env" Docker image with Rust, Go, Python, Node.js
+    - Unpacks bzip2 archives and runs run.sh with no network access
+    - Memory limit (512MB), CPU limit (1 core), 5-minute timeout
+  - `write-file`: Write content to project files (creates directories as needed)
+  - `read-file`: Read content from project files
+  - `list-files`: List all files in a project folder
+  - `create-archive`: Create bzip2 archive of a project
+  - Projects stored in `data/dev_projects/`
+
 ### v0.49.1
 **Branch:** `v0.49.1`  
 **Completed:** 2025-12-14 01:50 UTC | 2025-12-13 17:50 PST

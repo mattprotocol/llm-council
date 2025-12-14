@@ -62,6 +62,12 @@
       "description": "Dynamic problem-solving through structured sequential thinking steps"
     },
     {
+      "name": "software-dev-org",
+      "command": ["python3", "-m", "mcp_servers.software_dev_org.server"],
+      "port": null,
+      "description": "Software development tools - sandboxed execution, file management, project archiving"
+    },
+    {
       "name": "graphiti",
       "transport": "external",
       "url": "http://localhost:8000/mcp",
