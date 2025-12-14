@@ -4,6 +4,19 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.52.5
+**Branch:** `v0.52.5`  
+**Completed:** 2025-12-14 11:15 UTC | 2025-12-14 03:15 PST
+
+**Fixes:**
+- **Intent Classifier JSON Parsing Fix**: Fixed malformed JSON causing "create an artistic image" to incorrectly route to COUNCIL_DELIBERATION
+  - Problem: Some LLMs return partial/corrupted JSON, causing JSONDecodeError and fallback to COUNCIL_DELIBERATION
+  - Solution: Added multi-layer fallback extraction:
+    1. Try standard JSON parsing
+    2. Regex extraction of "intent" field from malformed JSON
+    3. Keyword inference (e.g., "create", "image" → RESEARCH_CONTROLLER)
+  - Now correctly routes image creation queries even with imperfect LLM responses
+
 ### v0.52.4
 **Branch:** `v0.52.4`  
 **Completed:** 2025-12-14 09:55 UTC | 2025-12-14 01:55 PST

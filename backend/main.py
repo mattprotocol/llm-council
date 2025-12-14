@@ -37,7 +37,8 @@ from .tag_service import tag_service
 from .research_controller import (
     augment_query_with_memory, 
     record_interaction_to_memory,
-    create_research_controller
+    create_research_controller,
+    classify_query_intent
 )
 
 @asynccontextmanager

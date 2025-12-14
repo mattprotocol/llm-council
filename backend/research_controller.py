@@ -13,6 +13,7 @@ or the maximum number of rounds is reached.
 
 import json
 import asyncio
+import re
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
@@ -246,6 +247,66 @@ class SelfImprovingResearchController:
         print(f"[Research Controller] Found {len(state.current_knowledge)} relevant facts in memory")
         print(f"[Research Controller] {len(state.available_tools)} tools available")
         
+        # === SEMANTIC INTENT CLASSIFICATION ===
+        # Use LLM to determine the best routing for this query
+        if on_event:
+            on_event("intent_classification_start", {"query": query})
+        
+        intent_result = await classify_query_intent(
+            query=query,
+            available_tools=state.available_tools,
+            llm_query_func=self.llm_query_func,
+            timeout=15
+        )
+        
+        intent = intent_result.get("intent", "COUNCIL_DELIBERATION")
+        reasoning = intent_result.get("reasoning", "")
+        tool_hints = intent_result.get("tool_hints", [])
+        
+        print(f"[Research Controller] Intent: {intent} - {reasoning}")
+        
+        if on_event:
+            on_event("intent_classification_complete", {
+                "intent": intent,
+                "reasoning": reasoning,
+                "tool_hints": tool_hints
+            })
+        
+        # Handle immediate escalation to council
+        if intent == "COUNCIL_DELIBERATION":
+            return {
+                "success": False,
+                "status": "ESCALATE",
+                "answer": None,
+                "rounds_taken": 0,
+                "facts_used": len(state.current_knowledge),
+                "lessons_learned": [],
+                "action_summary": [],
+                "escalation_reason": reasoning or "Query benefits from multi-perspective council deliberation"
+            }
+        
+        # Handle direct response for simple queries
+        if intent == "DIRECT_RESPONSE":
+            # Let the LLM provide a quick direct answer
+            try:
+                direct_response = await self.llm_query_func(
+                    [{"role": "user", "content": query}],
+                    timeout=30
+                )
+                if direct_response and direct_response.get("content"):
+                    return {
+                        "success": True,
+                        "status": "FINISHED",
+                        "answer": direct_response["content"],
+                        "rounds_taken": 1,
+                        "facts_used": len(state.current_knowledge),
+                        "lessons_learned": [],
+                        "action_summary": [{"round": 1, "tool": None, "thought": "Direct response to simple query"}]
+                    }
+            except Exception as e:
+                print(f"[Research Controller] Direct response error: {e}")
+            # Fall through to research loop if direct response fails
+        
         # Main loop
         while state.current_round < state.max_rounds and state.status == "WORKING":
             state.current_round += 1
@@ -450,71 +511,191 @@ def create_research_controller(memory_service=None, mcp_registry=None, llm_query
     )
 
 
-# Keywords and patterns that suggest a query needs the research controller
-# Two types: exact phrases and keyword combinations
-RESEARCH_TRIGGER_PHRASES = [
-    "make a picture",
-    "design a",
-    "build a",
-    "make a tool",
-    "create a tool",
-    "find a way to",
-    "how can i create",
-    "how do i make",
-    "i need a",
-    "research",
-    "investigate",
-    "find out",
-    "look up",
-    "search for",
-]
+# Prompt for semantic intent classification
+INTENT_CLASSIFICATION_PROMPT = """You are an intent classifier. Analyze the user's query and determine what type of processing is needed.
 
-# Keyword combinations - if ALL keywords in a tuple are present, it's a trigger
-RESEARCH_TRIGGER_KEYWORDS = [
-    ("create", "image"),      # Matches "create an image", "create an artistic image", etc.
-    ("generate", "image"),    # Matches "generate an image", "generate a beautiful image"
-    ("draw", "picture"),      # Matches "draw a picture", "draw me a picture"
-    ("make", "image"),        # Matches "make an image", "make me an image"
-    ("create", "picture"),    # Matches "create a picture"
-]
+**User Query:** "{query}"
 
-# Single keywords that are strong indicators
-RESEARCH_TRIGGER_SINGLE = [
-    "draw",  # "draw a cat", "draw something"
-]
+**Available Tools:** {tools_summary}
+
+Classify the intent into ONE of these categories:
+1. **RESEARCH_CONTROLLER** - Use when:
+   - Query requires tool usage (weather, location, data lookup, etc.)
+   - Query asks to create/generate artifacts (images, files, tools, etc.)
+   - Query requires external data or API calls
+   - Query needs iterative research or information gathering
+   - Complex multi-step tasks requiring tool orchestration
+
+2. **COUNCIL_DELIBERATION** - Use when:
+   - Query is philosophical, ethical, or requires multiple perspectives
+   - Query is subjective and benefits from diverse viewpoints
+   - Query is creative writing/brainstorming without tool needs
+   - Complex reasoning that doesn't require external data
+
+3. **DIRECT_RESPONSE** - Use when:
+   - Simple greeting or chitchat
+   - Basic factual question answerable from general knowledge
+   - Simple follow-up or clarification
+   - Conversational exchange not requiring tools or deep deliberation
+
+Respond with ONLY a JSON object:
+{{
+  "intent": "RESEARCH_CONTROLLER" | "COUNCIL_DELIBERATION" | "DIRECT_RESPONSE",
+  "reasoning": "Brief explanation of why this classification was chosen",
+  "tool_hints": ["optional list of tool names that might be relevant"]
+}}"""
+
+
+async def classify_query_intent(
+    query: str,
+    available_tools: List[str],
+    llm_query_func,
+    timeout: int = 15
+) -> Dict[str, Any]:
+    """
+    Use LLM to semantically classify query intent.
+    
+    Args:
+        query: The user's query
+        available_tools: List of available tool names
+        llm_query_func: Async function to query the LLM
+        timeout: Maximum time for classification
+        
+    Returns:
+        Dict with intent classification and reasoning
+    """
+    if not llm_query_func:
+        # Fallback to keyword matching if no LLM available
+        return {
+            "intent": "COUNCIL_DELIBERATION",
+            "reasoning": "No LLM available for semantic classification",
+            "tool_hints": []
+        }
+    
+    # Summarize tools for prompt
+    if available_tools:
+        tools_summary = ", ".join(available_tools[:30])  # Limit to avoid huge prompts
+        if len(available_tools) > 30:
+            tools_summary += f" (and {len(available_tools) - 30} more)"
+    else:
+        tools_summary = "No tools currently available"
+    
+    prompt = INTENT_CLASSIFICATION_PROMPT.format(
+        query=query,
+        tools_summary=tools_summary
+    )
+    
+    try:
+        response = await asyncio.wait_for(
+            llm_query_func(
+                [{"role": "user", "content": prompt}],
+                timeout=timeout
+            ),
+            timeout=timeout + 5
+        )
+        
+        if response and response.get('content'):
+            content = response['content']
+            # Parse JSON from response
+            try:
+                if '```json' in content:
+                    content = content.split('```json')[1].split('```')[0]
+                elif '```' in content:
+                    content = content.split('```')[1].split('```')[0]
+                result = json.loads(content.strip())
+                
+                # Validate intent
+                valid_intents = ["RESEARCH_CONTROLLER", "COUNCIL_DELIBERATION", "DIRECT_RESPONSE"]
+                if result.get("intent") not in valid_intents:
+                    result["intent"] = "COUNCIL_DELIBERATION"  # Safe default
+                
+                return result
+            except json.JSONDecodeError:
+                print(f"[Intent Classifier] Failed to parse JSON: {content[:200]}")
+                # Try to extract intent from malformed response using regex
+                intent_match = re.search(r'"intent"\s*:\s*"(RESEARCH_CONTROLLER|COUNCIL_DELIBERATION|DIRECT_RESPONSE)"', content)
+                if intent_match:
+                    extracted_intent = intent_match.group(1)
+                    print(f"[Intent Classifier] Extracted intent via regex: {extracted_intent}")
+                    return {
+                        "intent": extracted_intent,
+                        "reasoning": "Extracted from malformed JSON",
+                        "tool_hints": []
+                    }
+                
+                # Fallback: check for keywords to infer intent
+                content_lower = content.lower()
+                if any(kw in content_lower for kw in ["research_controller", "tool", "create", "generate", "image", "build"]):
+                    print("[Intent Classifier] Inferring RESEARCH_CONTROLLER from keywords")
+                    return {
+                        "intent": "RESEARCH_CONTROLLER",
+                        "reasoning": "Inferred from keywords in malformed response",
+                        "tool_hints": []
+                    }
+                elif any(kw in content_lower for kw in ["direct", "simple", "greeting", "chitchat"]):
+                    print("[Intent Classifier] Inferring DIRECT_RESPONSE from keywords")
+                    return {
+                        "intent": "DIRECT_RESPONSE",
+                        "reasoning": "Inferred from keywords in malformed response",
+                        "tool_hints": []
+                    }
+                
+                return {
+                    "intent": "COUNCIL_DELIBERATION",
+                    "reasoning": "Failed to parse LLM response",
+                    "tool_hints": []
+                }
+        
+        return {
+            "intent": "COUNCIL_DELIBERATION",
+            "reasoning": "Empty LLM response",
+            "tool_hints": []
+        }
+        
+    except asyncio.TimeoutError:
+        print("[Intent Classifier] Timeout during classification")
+        return {
+            "intent": "COUNCIL_DELIBERATION",
+            "reasoning": "Classification timed out",
+            "tool_hints": []
+        }
+    except Exception as e:
+        print(f"[Intent Classifier] Error: {e}")
+        return {
+            "intent": "COUNCIL_DELIBERATION",
+            "reasoning": f"Classification error: {str(e)}",
+            "tool_hints": []
+        }
 
 
 def should_use_research_controller(query: str) -> bool:
     """
-    Determine if a query should be routed to the Research Controller
-    instead of the standard deliberation flow.
+    DEPRECATED: Use classify_query_intent() for semantic classification.
     
-    The Research Controller is ideal for:
-    - Creative generation tasks (images, tools, etc.)
-    - Tasks that may require building new tools
-    - Complex research that benefits from iteration
+    This function is kept for backward compatibility but will be replaced
+    by the async semantic classifier.
     
     Args:
         query: The user's query
         
     Returns:
-        True if the query should use the research controller
+        True if the query should use the research controller (simple heuristic)
     """
+    # Simple heuristic fallback - check for obvious tool-related patterns
     query_lower = query.lower()
     
-    # Check exact phrases first
-    for trigger in RESEARCH_TRIGGER_PHRASES:
-        if trigger in query_lower:
-            return True
+    tool_indicators = [
+        "weather", "temperature", "forecast",
+        "location", "where am i", "my location",
+        "time", "date", "what day",
+        "create an image", "generate an image", "draw", "make a picture",
+        "build a tool", "create a tool", "make a tool",
+        "search for", "look up", "find out",
+        "research", "investigate"
+    ]
     
-    # Check keyword combinations (all keywords in tuple must be present)
-    for keywords in RESEARCH_TRIGGER_KEYWORDS:
-        if all(kw in query_lower for kw in keywords):
-            return True
-    
-    # Check single strong indicators
-    for keyword in RESEARCH_TRIGGER_SINGLE:
-        if keyword in query_lower:
+    for indicator in tool_indicators:
+        if indicator in query_lower:
             return True
     
     return False
