@@ -5,6 +5,8 @@
   height: 100vh;
   background: #ffffff;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Pinned user message header */
@@ -614,6 +616,9 @@
   border: 2px solid #81c784;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .final-answer-header {
@@ -637,6 +642,9 @@
 
 .final-answer-content {
   color: #1b5e20;
+  overflow: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .final-answer-content .stage.no-title-bar {
@@ -649,4 +657,157 @@
 
 .final-answer-content .no-title-bar .final-text {
   padding: 0;
+}
+
+/* Research Controller Steps */
+.research-steps-section {
+  margin: 12px 0;
+  border: 1px solid #b39ddb;
+  border-radius: 8px;
+  background: #f3e5f5;
+  overflow: hidden;
+}
+
+.research-steps-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6a1b9a;
+  background: rgba(186, 104, 200, 0.1);
+  list-style: none;
+}
+
+.research-steps-header::-webkit-details-marker {
+  display: none;
+}
+
+.research-steps-section[open] .research-steps-header {
+  border-bottom: 1px solid #ce93d8;
+}
+
+.research-icon {
+  font-size: 16px;
+}
+
+.research-label {
+  flex: 1;
+}
+
+.research-count {
+  font-size: 11px;
+  color: #8e24aa;
+  background: rgba(142, 36, 170, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.research-summary {
+  font-size: 11px;
+  color: #7b1fa2;
+  font-weight: normal;
+}
+
+.research-steps-list {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.research-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-left: 3px solid #ce93d8;
+}
+
+.research-step.running {
+  background: rgba(255, 243, 224, 0.8);
+  border-left-color: #ff9800;
+}
+
+.research-step.complete {
+  background: rgba(232, 245, 233, 0.8);
+  border-left-color: #4caf50;
+}
+
+.research-step.error {
+  background: rgba(255, 235, 238, 0.8);
+  border-left-color: #f44336;
+}
+
+.step-icon {
+  font-size: 14px;
+}
+
+.step-text {
+  flex: 1;
+  color: #333;
+}
+
+.step-params {
+  font-size: 10px;
+  color: #666;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-left: 4px;
+}
+
+.step-status {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.step-status.running {
+  color: #ff9800;
+}
+
+.step-status.complete {
+  color: #4caf50;
+}
+
+.step-status.error {
+  color: #f44336;
+}
+
+.research-lessons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 235, 59, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #f9a825;
+}
+
+.lessons-icon {
+  font-size: 14px;
+}
+
+.research-fallback-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  background: #fff3e0;
+  border-left: 3px solid #ff9800;
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  color: #e65100;
+}
+
+.fallback-icon {
+  font-size: 14px;
 }

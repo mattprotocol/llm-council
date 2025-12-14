@@ -34,7 +34,12 @@ from .model_metrics import get_all_metrics, get_model_ranking, cleanup_invalid_m
 from .mcp.registry import get_mcp_registry, initialize_mcp, shutdown_mcp
 from .memory_service import get_memory_service, initialize_memory, get_short_term_memory_service, initialize_short_term_memory
 from .tag_service import tag_service
-from .research_controller import augment_query_with_memory, record_interaction_to_memory
+from .research_controller import (
+    augment_query_with_memory, 
+    record_interaction_to_memory,
+    should_use_research_controller,
+    create_research_controller
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -817,6 +822,78 @@ async def send_message_stream_tokens(conversation_id: str, request: SendMessageR
             
             # ===== ROUTING DECISION =====
             msg_type = classification.get("type", "deliberation")
+            
+            # ===== RESEARCH CONTROLLER PATH =====
+            # Check if this query should use the self-improving research controller
+            use_research_controller = should_use_research_controller(request.content)
+            
+            if use_research_controller:
+                yield f"data: {json.dumps({'type': 'research_controller_start', 'reason': 'Query requires iterative research or tool creation'})}\n\n"
+                
+                # Create LLM query function for the controller
+                from .council import call_model_streaming
+                config = load_config()
+                chairman_config = config.get("models", {}).get("chairman", {})
+                
+                async def llm_query_func(messages, timeout=60):
+                    """Query the chairman model for research decisions."""
+                    try:
+                        result = {"content": ""}
+                        async for chunk in call_model_streaming(
+                            chairman_config.get("id", ""),
+                            messages,
+                            max_tokens=2000
+                        ):
+                            if chunk.get("content"):
+                                result["content"] += chunk["content"]
+                        return result
+                    except Exception as e:
+                        return {"content": "", "error": str(e)}
+                
+                # Create and run the research controller
+                registry = get_mcp_registry()
+                controller = create_research_controller(
+                    memory_service=memory_service,
+                    mcp_registry=registry,
+                    llm_query_func=llm_query_func
+                )
+                
+                research_result = await controller.run_research_loop(request.content, on_event)
+                
+                # Stream any research events
+                while not events_queue.empty():
+                    event_type, data = events_queue.get_nowait()
+                    yield f"data: {json.dumps({'type': f'research_{event_type}', **data})}\n\n"
+                
+                # Send research result
+                yield f"data: {json.dumps({'type': 'research_controller_complete', 'data': research_result})}\n\n"
+                
+                if research_result.get("success") and research_result.get("answer"):
+                    # Research controller provided an answer
+                    direct_result = {
+                        "model": "research_controller",
+                        "response": research_result["answer"],
+                        "type": "research",
+                        "rounds_taken": research_result.get("rounds_taken", 0),
+                        "lessons_learned": research_result.get("lessons_learned", [])
+                    }
+                    
+                    yield f"data: {json.dumps({'type': 'research_response_complete', 'data': direct_result})}\n\n"
+                    
+                    # Save as assistant message
+                    storage.add_assistant_message(
+                        conversation_id,
+                        [],  # No stage1
+                        [],  # No stage2
+                        direct_result,
+                        tool_result
+                    )
+                    
+                    yield f"data: {json.dumps({'type': 'complete', 'response_type': 'research'})}\n\n"
+                    return
+                else:
+                    # Research controller couldn't answer - fall through to deliberation
+                    yield f"data: {json.dumps({'type': 'research_controller_fallback', 'reason': 'Research controller could not complete - falling back to deliberation'})}\n\n"
             
             # ===== PERSONALITY INTROSPECTION CHECK =====
             # If it's a personal question (feelings, preferences, etc.) with no memory,

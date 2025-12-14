@@ -836,6 +836,127 @@ function App() {
             }
             break;
 
+          case 'research_controller_start':
+            // Research controller is starting
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.responseType = 'research';
+              lastMsg.researchSteps = [];
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_round_start':
+            // New research round starting
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.researchSteps) lastMsg.researchSteps = [];
+              lastMsg.researchSteps.push({
+                type: 'round',
+                round: event.round,
+                status: 'running',
+                timestamp: Date.now()
+              });
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_memory_search_start':
+            // Research controller searching memory
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.researchSteps) lastMsg.researchSteps = [];
+              lastMsg.researchSteps.push({
+                type: 'memory_search',
+                status: 'running',
+                timestamp: Date.now()
+              });
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_memory_search_complete':
+            // Memory search complete
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg.researchSteps) {
+                const step = lastMsg.researchSteps.find(s => s.type === 'memory_search' && s.status === 'running');
+                if (step) {
+                  step.status = 'complete';
+                  step.facts_found = event.facts_found;
+                  step.tools_available = event.tools_available;
+                }
+              }
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_tool_execution_start':
+            // Research controller executing a tool
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (!lastMsg.researchSteps) lastMsg.researchSteps = [];
+              lastMsg.researchSteps.push({
+                type: 'tool_execution',
+                tool: event.tool,
+                parameters: event.parameters,
+                status: 'running',
+                timestamp: Date.now()
+              });
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_tool_execution_complete':
+            // Tool execution complete
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              if (lastMsg.researchSteps) {
+                const step = lastMsg.researchSteps.find(s => s.type === 'tool_execution' && s.tool === event.tool && s.status === 'running');
+                if (step) {
+                  step.status = event.success ? 'complete' : 'error';
+                }
+              }
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_controller_complete':
+            // Research controller finished
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.researchResult = event.data;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_response_complete':
+            // Research response is ready
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage3 = event.data;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'research_controller_fallback':
+            // Research controller falling back to deliberation
+            setCurrentConversation((prev) => {
+              const messages = [...(prev?.messages || [])];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.researchFallback = true;
+              return { ...prev, messages };
+            });
+            break;
+
           case 'complete':
             // Stream complete - update message count locally instead of reloading
             // This preserves the title_complete update that already happened

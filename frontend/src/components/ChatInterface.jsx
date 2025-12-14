@@ -342,6 +342,82 @@ export default function ChatInterface({
                     </div>
                   )}
 
+                  {/* Research Controller Steps - collapsible area */}
+                  {(msg.researchSteps && msg.researchSteps.length > 0) && (
+                    <details className="research-steps-section" open={!msg.stage3}>
+                      <summary className="research-steps-header">
+                        <span className="research-icon">🔬</span>
+                        <span className="research-label">Research Controller</span>
+                        <span className="research-count">
+                          ({msg.researchSteps.length} step{msg.researchSteps.length !== 1 ? 's' : ''})
+                        </span>
+                        {msg.researchResult && (
+                          <span className="research-summary">
+                            • {msg.researchResult.rounds_taken} round{msg.researchResult.rounds_taken !== 1 ? 's' : ''} 
+                            • {msg.researchResult.facts_used} fact{msg.researchResult.facts_used !== 1 ? 's' : ''} used
+                          </span>
+                        )}
+                      </summary>
+                      <div className="research-steps-list">
+                        {msg.researchSteps.map((step, idx) => (
+                          <div key={idx} className={`research-step ${step.type} ${step.status}`}>
+                            {step.type === 'round' && (
+                              <>
+                                <span className="step-icon">🔄</span>
+                                <span className="step-text">Round {step.round}</span>
+                                <span className={`step-status ${step.status}`}>
+                                  {step.status === 'running' ? '...' : '✓'}
+                                </span>
+                              </>
+                            )}
+                            {step.type === 'memory_search' && (
+                              <>
+                                <span className="step-icon">🧠</span>
+                                <span className="step-text">
+                                  Searching memory
+                                  {step.status === 'complete' && ` (${step.facts_found} facts, ${step.tools_available} tools)`}
+                                </span>
+                                <span className={`step-status ${step.status}`}>
+                                  {step.status === 'running' ? '...' : '✓'}
+                                </span>
+                              </>
+                            )}
+                            {step.type === 'tool_execution' && (
+                              <>
+                                <span className="step-icon">🔧</span>
+                                <span className="step-text">
+                                  {step.tool}
+                                  {step.parameters && (
+                                    <code className="step-params">{JSON.stringify(step.parameters).slice(0, 50)}...</code>
+                                  )}
+                                </span>
+                                <span className={`step-status ${step.status}`}>
+                                  {step.status === 'running' ? '...' : step.status === 'complete' ? '✓' : '✗'}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                        {msg.researchResult?.lessons_learned?.length > 0 && (
+                          <div className="research-lessons">
+                            <span className="lessons-icon">💡</span>
+                            <span className="lessons-text">
+                              Learned {msg.researchResult.lessons_learned.length} lesson{msg.researchResult.lessons_learned.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Research Fallback Notice */}
+                  {msg.researchFallback && (
+                    <div className="research-fallback-notice">
+                      <span className="fallback-icon">⚠️</span>
+                      <span className="fallback-text">Research controller could not complete - using council deliberation</span>
+                    </div>
+                  )}
+
                   {/* Multi-step tool calls - collapsible area */}
                   {(msg.toolSteps && msg.toolSteps.length > 0) && (
                     <ToolSteps 

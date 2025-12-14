@@ -4,6 +4,29 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.52.0
+**Branch:** `v0.52.0`  
+**Completed:** 2025-12-14 08:35 UTC | 2025-12-14 00:35 PST
+
+**Fixes:**
+- **Sidebar Disappearing Fix**: Fixed sidebar vanishing when final response is larger than viewport
+  - Added `flex-shrink: 0`, `min-width`, `max-width` to sidebar CSS
+  - Added `min-width: 0` and `overflow: hidden` to chat interface
+  - Added word-wrap/overflow handling to final answer section
+
+**Features:**
+- **Research Controller Integration**: Full integration into message flow with UI
+  - Auto-triggers on queries matching research patterns (create image, build tool, research, etc.)
+  - Routes to research controller before standard deliberation
+  - Falls back to deliberation if research controller cannot complete
+  - Collapsible research steps display in chat showing:
+    - Round progress
+    - Memory search results
+    - Tool executions with parameters
+    - Lessons learned count
+  - Purple-themed UI matching the research/creative nature
+  - Research fallback notice when falling back to deliberation
+
 ### v0.51.0
 **Branch:** `v0.51.0`  
 **Completed:** 2025-12-14 04:30 UTC | 2025-12-13 20:30 PST

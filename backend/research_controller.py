@@ -423,3 +423,50 @@ def create_research_controller(memory_service=None, mcp_registry=None, llm_query
         mcp_registry=mcp_registry,
         llm_query_func=llm_query_func
     )
+
+
+# Keywords and patterns that suggest a query needs the research controller
+RESEARCH_TRIGGERS = [
+    "create an image",
+    "generate an image", 
+    "draw",
+    "make a picture",
+    "design a",
+    "build a",
+    "make a tool",
+    "create a tool",
+    "find a way to",
+    "how can i create",
+    "how do i make",
+    "i need a",
+    "research",
+    "investigate",
+    "find out",
+    "look up",
+    "search for",
+]
+
+
+def should_use_research_controller(query: str) -> bool:
+    """
+    Determine if a query should be routed to the Research Controller
+    instead of the standard deliberation flow.
+    
+    The Research Controller is ideal for:
+    - Creative generation tasks (images, tools, etc.)
+    - Tasks that may require building new tools
+    - Complex research that benefits from iteration
+    
+    Args:
+        query: The user's query
+        
+    Returns:
+        True if the query should use the research controller
+    """
+    query_lower = query.lower()
+    
+    for trigger in RESEARCH_TRIGGERS:
+        if trigger in query_lower:
+            return True
+    
+    return False
