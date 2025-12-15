@@ -4,6 +4,17 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.53.2
+**Branch:** `v0.53.2`  
+**Completed:** 2025-12-15 03:55 UTC | 2025-12-14 19:55 PST
+
+**Fixes:**
+- **Image Generation Detection Override**: Fixed issue where LLM misclassified image generation requests as "no external data needed"
+  - Root cause: `_analyze_user_expectations()` LLM sometimes returns `needs_external_data: false` for image creation queries despite clear prompt instructions
+  - Fix: Added fallback keyword detection in `_phase1_analyze_query()` that overrides LLM classification when image generation keywords are detected
+  - Keywords checked: 'create an image', 'generate an image', 'draw', 'make a picture', 'artistic image', etc.
+  - Now: Image creation requests reliably route to mcp-dev-team BUILD workflow even when LLM misclassifies
+
 ### v0.53.1
 **Branch:** `v0.53.1`  
 **Completed:** 2025-12-15 03:25 UTC | 2025-12-14 19:25 PST

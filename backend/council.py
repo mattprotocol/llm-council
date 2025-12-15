@@ -1047,13 +1047,27 @@ async def _phase1_analyze_query(user_query: str, detailed_tool_info: str) -> Opt
         # Fallback to simple classification
         return None
     
-    # If no external data needed, skip tool evaluation
+    # If no external data needed, check for capability-based requests (like image generation)
+    # that require tools even without external data
     if not expectations.get('needs_external_data', False):
-        print(f"[MCP Phase 1] No external data needed: {expectations.get('reasoning', '')}")
-        return {
-            "needs_tool": False,
-            "reasoning": expectations.get('reasoning', 'Query can be answered from general knowledge')
-        }
+        query_lower = user_query.lower()
+        
+        # Check for image generation requests that may have been misclassified
+        image_keywords = ['create an image', 'generate an image', 'draw', 'make a picture', 
+                          'create image', 'generate image', 'make image', 'artistic image',
+                          'create a picture', 'generate a picture', 'draw a picture']
+        
+        if any(kw in query_lower for kw in image_keywords):
+            print(f"[MCP Phase 1] Detected image generation request - overriding classification")
+            # Override to require image generation tool
+            expectations['needs_external_data'] = True
+            expectations['data_types_needed'] = ['image_generation']
+        else:
+            print(f"[MCP Phase 1] No external data needed: {expectations.get('reasoning', '')}")
+            return {
+                "needs_tool": False,
+                "reasoning": expectations.get('reasoning', 'Query can be answered from general knowledge')
+            }
     
     # Step 2: Evaluate tool confidence
     print(f"[MCP Phase 1] Evaluating tool confidence for data types: {expectations.get('data_types_needed', [])}")
