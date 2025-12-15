@@ -4,6 +4,17 @@ Completed changes with version, branch, and timestamp information.
 
 ## Completed Changes
 
+### v0.52.8
+**Branch:** `v0.52.8`  
+**Completed:** 2025-12-15 03:05 UTC | 2025-12-14 19:05 PST
+
+**Fixes:**
+- **Research Controller NoneType Error**: Fixed AttributeError in `run_research_loop()` action summary generation
+  - Error: `'NoneType' object has no attribute 'get'` when action_history contained entries with None action
+  - Root cause: `a.get("action", {})` still fails if action is explicitly `None` (not missing)
+  - Fix: Use `(a.get("action") or {})` pattern to handle both missing and None values
+  - Also added null check for items in action_history and safe access for "round" and "thought" keys
+
 ### v0.52.7
 **Branch:** `v0.52.7`  
 **Completed:** 2025-12-14 11:45 UTC | 2025-12-14 03:45 PST

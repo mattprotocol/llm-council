@@ -503,8 +503,12 @@ class SelfImprovingResearchController:
             "facts_used": len(state.current_knowledge),
             "lessons_learned": state.lessons_learned,
             "action_summary": [
-                {"round": a["round"], "tool": a.get("action", {}).get("name"), "thought": a.get("thought", "")[:100]}
-                for a in state.action_history
+                {
+                    "round": a.get("round", 0), 
+                    "tool": (a.get("action") or {}).get("name"), 
+                    "thought": (a.get("thought") or "")[:100]
+                }
+                for a in state.action_history if a is not None
             ]
         }
         

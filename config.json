@@ -36,7 +36,7 @@
       }
     ],
     "chairman": {
-      "id": "nexveridian/granite-4.0-h-tiny",
+      "id": "qwen/qwen3-4b-thinking-2507",
       "name": "chairman",
       "description": "chairman model for final response synthesis",
       "ip": "",
@@ -45,7 +45,7 @@
       "api_key": ""
     },
     "formatter": {
-      "id": "qwen/qwen3-4b-2507",
+      "id": "qwen/qwen3-4b-thinking-2507",
       "name": "Final Response Formatter",
       "description": "Formatter model for improving response formatting (empty = use chairman)",
       "ip": "",
@@ -63,7 +63,7 @@
       "api_key": ""
     },
     "prompt_engineer": {
-      "id": "llama-3.2-3b-instruct",
+      "id": "qwen/qwen3-4b-thinking-2507",
       "name": "Prompt Engineer",
       "description": "Prompt engineering model for dynamic prompt generation (empty = use chairman)",
       "ip": "",
@@ -100,7 +100,7 @@
     },
     "software_dev_engineer": {
       "id": "mistralai/devstral-small-2-2512",
-      "name": "Software Dev Engineer",
+      "name": "SDE",
       "description": "For mcp-dev-team: generates code files (empty = use software_architect)",
       "ip": "",
       "port": "",
@@ -108,7 +108,7 @@
       "api_key": ""
     },
     "qa_analyst": {
-      "id": "smollm3-3b-gabliterated",
+      "id": "qwen/qwen3-4b-thinking-2507",
       "name": "QA Analyst",
       "description": "For mcp-dev-team: tests in sandbox (empty = use software_architect)",
       "ip": "",
