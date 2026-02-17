@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import MarkdownRenderer from './MarkdownRenderer';
-import ToolSteps from './ToolSteps';
-import DevTeamWorkflow from './DevTeamWorkflow';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
-import TagBar from './TagBar';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -15,7 +12,6 @@ export default function ChatInterface({
   onRedoMessage,
   onEditMessage,
   isLoading,
-  memoryNames = { user_name: null, ai_name: null, loaded: false },
 }) {
   const [input, setInput] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
@@ -27,7 +23,6 @@ export default function ChatInterface({
 
   // Find first and last user messages
   const { firstUserMessage, lastUserMessage, firstUserIndex, lastUserIndex } = useMemo(() => {
-    // Defensive check for conversation and messages array
     if (!conversation) return {};
     const messages = conversation.messages;
     if (!messages || !Array.isArray(messages) || messages.length === 0) return {};
@@ -53,25 +48,21 @@ export default function ChatInterface({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Auto-scroll to bottom only if user hasn't scrolled up
   useEffect(() => {
     if (!userScrolledUp) {
       scrollToBottom();
     }
   }, [conversation, userScrolledUp]);
 
-  // Reset userScrolledUp when a new message is sent (conversation length increases)
   useEffect(() => {
     setUserScrolledUp(false);
   }, [conversation?.messages?.length]);
 
-  // Handle scroll to show/hide pinned header and detect user scroll
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      // Check if user scrolled up from bottom
       const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
       if (!isAtBottom && !userScrolledUp) {
         setUserScrolledUp(true);
@@ -86,8 +77,6 @@ export default function ChatInterface({
       
       const firstMsgRect = firstUserMessageRef.current.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
-      
-      // Show pinned header when first user message scrolls above container top
       setShowPinnedHeader(firstMsgRect.bottom < containerRect.top + 20);
     };
 
@@ -99,7 +88,6 @@ export default function ChatInterface({
     e.preventDefault();
     if (input.trim() && !isLoading) {
       if (editingIndex !== null) {
-        // Editing existing message
         onEditMessage(editingIndex, input);
         setEditingIndex(null);
       } else {
@@ -110,7 +98,6 @@ export default function ChatInterface({
   };
 
   const handleKeyDown = (e) => {
-    // Submit on Enter (without Shift)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -135,7 +122,6 @@ export default function ChatInterface({
     setInput('');
   };
 
-  // Show loading state when conversation is being loaded
   if (!conversation && conversationId) {
     return (
       <div className="chat-interface">
@@ -158,7 +144,6 @@ export default function ChatInterface({
     );
   }
 
-  // Ensure conversation has messages array (defensive check)
   const messages = conversation.messages || [];
 
   return (
@@ -172,7 +157,7 @@ export default function ChatInterface({
               <span className="id-separator">|</span>
               <span className="id-badge message-id" title="Message ID">{firstUserIndex}</span>
             </div>
-            <div className="pinned-label">📌 Original Question</div>
+            <div className="pinned-label">Original Question</div>
             <div className="pinned-actions">
               <button
                 className="action-btn redo-btn"
@@ -217,10 +202,7 @@ export default function ChatInterface({
             >
               {msg.role === 'user' ? (
                 <div className="user-message">
-                  {/* Name overlay */}
-                  <div className="message-name-overlay user-name">
-                    {memoryNames.user_name || 'User'}
-                  </div>
+                  <div className="message-name-overlay user-name">User</div>
                   <div className="message-content">
                     <div className="message-ids">
                       <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
@@ -251,22 +233,11 @@ export default function ChatInterface({
                       </button>
                     </div>
                   </div>
-                  {/* Tag bar for user messages */}
-                  <TagBar
-                    conversationId={conversationId}
-                    messageIndex={index}
-                    role="user"
-                    messageContent={msg.content}
-                    aiResponse={messages[index + 1]?.stage3?.response || ''}
-                  />
                 </div>
               ) : (
                 <div className={`assistant-message ${(msg.stage3 || msg.streaming?.stage3?.content) ? 'has-content' : ''}`}>
-                  {/* Name overlay - only show when there's actual content (stage3 or streaming content) */}
                   {(msg.stage3 || msg.streaming?.stage3?.content) && (
-                    <div className="message-name-overlay ai-name">
-                      {memoryNames.ai_name || 'Assistant'}
-                    </div>
+                    <div className="message-name-overlay ai-name">Council</div>
                   )}
                   <div className="message-ids">
                     <span className="id-badge conversation-id" title="Conversation ID">{conversation.id?.slice(0, 8)}</span>
@@ -275,58 +246,15 @@ export default function ChatInterface({
                   </div>
                   <div className="message-label">
                     LLM Council
-                    {/* Classification badge - check both streaming responseType and saved stage3.type */}
                     {(msg.classification || msg.stage3) && (
-                      <span className={`classification-badge ${msg.classification?.type || (msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory' ? 'chat' : 'deliberation')}`}>
-                        {msg.classification?.status === 'classifying' ? '🔍 Classifying...' : 
-                         (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? '⚡ Direct' : 
-                         (msg.responseType === 'memory' || msg.stage3?.type === 'memory') ? '🧠 Memory' : '🤔 Deliberation'}
-                      </span>
-                    )}
-                    {msg.memoryStatus && msg.memoryStatus.status === 'used' && (
-                      <span className="memory-badge used" title={`Confidence: ${(msg.memoryStatus.confidence * 100).toFixed(0)}%`}>
-                        🧠 Memory Used
+                      <span className={`classification-badge ${msg.classification?.type || (msg.stage3?.type === 'direct' ? 'chat' : 'deliberation')}`}>
+                        {msg.classification?.status === 'classifying' ? 'Classifying...' : 
+                         (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct' : 'Deliberation'}
                       </span>
                     )}
                   </div>
 
-                  {/* Memory status indicator */}
-                  {msg.memoryStatus && (
-                    <div className={`memory-status ${msg.memoryStatus.status}`}>
-                      {msg.memoryStatus.status === 'searching' && (
-                        <span className="memory-searching">🧠 Searching memories...</span>
-                      )}
-                      {msg.memoryStatus.status === 'found' && (
-                        <span className="memory-found">
-                          🧠 Found {msg.memoryStatus.count || 0} relevant {msg.memoryStatus.count === 1 ? 'memory' : 'memories'}
-                          {msg.memoryStatus.confidence !== undefined && (
-                            <span className="memory-confidence">
-                              {' '}(confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}%)
-                            </span>
-                          )}
-                        </span>
-                      )}
-                      {msg.memoryStatus.status === 'used' && (
-                        <details className="memory-details" open>
-                          <summary>🧠 Memory-based response (confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}%)</summary>
-                          <div className="memory-info">
-                            <div>Found {msg.memoryStatus.count} relevant memories</div>
-                            <div>Threshold: {(msg.memoryStatus.threshold * 100).toFixed(0)}%</div>
-                          </div>
-                        </details>
-                      )}
-                      {msg.memoryStatus.status === 'not_used' && (
-                        <span className="memory-not-used">
-                          🧠 {msg.memoryStatus.count || 0} memories found
-                          {msg.memoryStatus.count > 0 && msg.memoryStatus.confidence !== undefined && (
-                            <span> (confidence: {(msg.memoryStatus.confidence * 100).toFixed(0)}% &lt; {(msg.memoryStatus.threshold * 100).toFixed(0)}% threshold)</span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Classification indicator - show details when complete */}
+                  {/* Classification indicator */}
                   {msg.classification?.status === 'classifying' && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
@@ -334,256 +262,18 @@ export default function ChatInterface({
                     </div>
                   )}
                   
-                  {/* Show classification reasoning when complete */}
                   {msg.classification?.status === 'complete' && msg.classification?.reasoning && (
                     <div className="classification-detail">
-                      <span className="classification-reasoning">
-                        {msg.classification.reasoning}
-                      </span>
+                      <span className="classification-reasoning">{msg.classification.reasoning}</span>
                     </div>
                   )}
-
-                  {/* Research Controller Steps - collapsible area */}
-                  {(msg.researchSteps && msg.researchSteps.length > 0) && (
-                    <details className="research-steps-section" open={!msg.stage3}>
-                      <summary className="research-steps-header">
-                        <span className="research-icon">🔬</span>
-                        <span className="research-label">Research Controller</span>
-                        <span className="research-count">
-                          ({msg.researchSteps.length} step{msg.researchSteps.length !== 1 ? 's' : ''})
-                        </span>
-                        {msg.researchResult && (
-                          <span className="research-summary">
-                            • {msg.researchResult.rounds_taken} round{msg.researchResult.rounds_taken !== 1 ? 's' : ''} 
-                            • {msg.researchResult.facts_used} fact{msg.researchResult.facts_used !== 1 ? 's' : ''} used
-                          </span>
-                        )}
-                      </summary>
-                      <div className="research-steps-list">
-                        {msg.researchSteps.map((step, idx) => (
-                          <div key={idx} className={`research-step ${step.type} ${step.status}`}>
-                            {step.type === 'round' && (
-                              <>
-                                <span className="step-icon">🔄</span>
-                                <span className="step-text">Round {step.round}</span>
-                                <span className={`step-status ${step.status}`}>
-                                  {step.status === 'running' ? '...' : '✓'}
-                                </span>
-                              </>
-                            )}
-                            {step.type === 'memory_search' && (
-                              <>
-                                <span className="step-icon">🧠</span>
-                                <span className="step-text">
-                                  Searching memory
-                                  {step.status === 'complete' && ` (${step.facts_found} facts, ${step.tools_available} tools)`}
-                                </span>
-                                <span className={`step-status ${step.status}`}>
-                                  {step.status === 'running' ? '...' : '✓'}
-                                </span>
-                              </>
-                            )}
-                            {step.type === 'tool_execution' && (
-                              <>
-                                <span className="step-icon">🔧</span>
-                                <span className="step-text">
-                                  {step.tool}
-                                  {step.parameters && (
-                                    <code className="step-params">{JSON.stringify(step.parameters).slice(0, 50)}...</code>
-                                  )}
-                                </span>
-                                <span className={`step-status ${step.status}`}>
-                                  {step.status === 'running' ? '...' : step.status === 'complete' ? '✓' : '✗'}
-                                </span>
-                              </>
-                            )}
-                            {step.type === 'intent_classification' && (
-                              <>
-                                <span className="step-icon">🎯</span>
-                                <span className="step-text">
-                                  Classifying intent
-                                  {step.status === 'complete' && step.intent && (
-                                    <span className="intent-result"> → {step.intent}</span>
-                                  )}
-                                  {step.status === 'complete' && step.reasoning && (
-                                    <span className="intent-reasoning"> ({step.reasoning})</span>
-                                  )}
-                                </span>
-                                <span className={`step-status ${step.status}`}>
-                                  {step.status === 'running' ? '...' : '✓'}
-                                </span>
-                              </>
-                            )}
-                            {step.type === 'escalate' && (
-                              <>
-                                <span className="step-icon">🔀</span>
-                                <span className="step-text">
-                                  Escalating to Council
-                                  {step.reason && <span className="escalate-reason">: {step.reason}</span>}
-                                </span>
-                                <span className={`step-status ${step.status}`}>✓</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                        {msg.researchResult?.lessons_learned?.length > 0 && (
-                          <div className="research-lessons">
-                            <span className="lessons-icon">💡</span>
-                            <span className="lessons-text">
-                              Learned {msg.researchResult.lessons_learned.length} lesson{msg.researchResult.lessons_learned.length !== 1 ? 's' : ''}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </details>
-                  )}
-
-                  {/* Research Escalation Notice */}
-                  {msg.researchEscalate && (
-                    <div className="research-escalate-notice">
-                      <span className="escalate-icon">🔀</span>
-                      <span className="escalate-text">
-                        Escalating to Council: {msg.escalationReason || 'Complex query requires deliberation'}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Research Fallback Notice */}
-                  {msg.researchFallback && !msg.researchEscalate && (
-                    <div className="research-fallback-notice">
-                      <span className="fallback-icon">⚠️</span>
-                      <span className="fallback-text">Research controller could not complete - using council deliberation</span>
-                    </div>
-                  )}
-
-                  {/* Multi-step tool calls - collapsible area */}
-                  {(msg.toolSteps && msg.toolSteps.length > 0) && (
-                    <ToolSteps 
-                      toolSteps={msg.toolSteps}
-                      isComplete={!!msg.stage3 || !msg.streaming}
-                    />
-                  )}
-
-                  {/* MCP Dev Team workflow display - special handling for software-dev-org.mcp-dev-team */}
-                  {msg.toolSteps && msg.toolSteps.some(s => s.tool?.includes('mcp-dev-team')) && (() => {
-                    const devTeamStep = msg.toolSteps.find(s => s.tool?.includes('mcp-dev-team'));
-                    if (!devTeamStep?.output) return null;
-                    
-                    // Parse output - it could be a string (JSON) or already an object
-                    let workflowData = devTeamStep.output;
-                    if (typeof workflowData === 'string') {
-                      try {
-                        workflowData = JSON.parse(workflowData);
-                      } catch (e) {
-                        return null;
-                      }
-                    }
-                    // Handle MCP response format where output is { content: [{ text: "..." }] }
-                    if (workflowData?.content?.[0]?.text) {
-                      try {
-                        workflowData = JSON.parse(workflowData.content[0].text);
-                      } catch (e) {
-                        return null;
-                      }
-                    }
-                    
-                    return (
-                      <DevTeamWorkflow
-                        workflowData={workflowData}
-                        onUserResponse={workflowData?.status === 'awaiting_plan_validation' ? (response) => {
-                          // Send the response as a new message
-                          onSendMessage(`[mcp-dev-team response] ${response}`);
-                        } : null}
-                        isComplete={workflowData?.status === 'completed'}
-                      />
-                    );
-                  })()}
-
-                  {/* Single tool result card - for backward compatibility when no toolSteps */}
-                  {/* Only show if toolResult exists but no toolSteps (legacy format) */}
-                  {(msg.toolResult || msg.tool_result) && (!msg.toolSteps || msg.toolSteps.length === 0) && (() => {
-                    const toolData = msg.toolResult || msg.tool_result;
-                    const toolName = toolData.tool || `${toolData.server}.${toolData.tool}`;
-                    // Handle both streaming (executionTime) and saved (execution_time_seconds) formats
-                    const execTime = toolData.executionTime ?? toolData.execution_time_seconds;
-                    const input = toolData.input;
-                    const output = toolData.output;
-                    
-                    // Extract output text for display
-                    let outputText = '';
-                    if (typeof output === 'string') {
-                      outputText = output;
-                    } else if (output?.content?.[0]?.text) {
-                      outputText = output.content[0].text;
-                    } else if (output !== undefined) {
-                      outputText = JSON.stringify(output, null, 2);
-                    }
-                    
-                    // Truncate long output
-                    const truncatedOutput = outputText.length > 500 
-                      ? outputText.substring(0, 500) + '...' 
-                      : outputText;
-                    
-                    return (
-                      <div className="tool-result-card">
-                        <div className="tool-result-header">
-                          <span className="tool-icon">🔧</span>
-                          <span className="tool-name">MCP Tool: {toolName}</span>
-                          {execTime !== undefined && (
-                            <span className="tool-time">{execTime}s</span>
-                          )}
-                        </div>
-                        <div className="tool-result-body">
-                          <div className="tool-io">
-                            <span className="tool-label">Input:</span>
-                            <code className="tool-value">{JSON.stringify(input)}</code>
-                          </div>
-                          <div className="tool-io">
-                            <span className="tool-label">Output:</span>
-                            <code className="tool-value">{typeof output === 'string' ? output : JSON.stringify(output)}</code>
-                          </div>
-                        </div>
-                        
-                        {/* Hover overlay with detailed stats */}
-                        <div className="tool-stats-overlay">
-                          <div className="tool-stats-title">📊 Tool Call Details</div>
-                          <div className="tool-stats-row">
-                            <span className="tool-stats-label">Server</span>
-                            <span className="tool-stats-value">{toolData.server || 'unknown'}</span>
-                          </div>
-                          <div className="tool-stats-row">
-                            <span className="tool-stats-label">Tool</span>
-                            <span className="tool-stats-value">{toolData.tool || toolName}</span>
-                          </div>
-                          <div className="tool-stats-row">
-                            <span className="tool-stats-label">Execution Time</span>
-                            <span className="tool-stats-value">{execTime !== undefined ? `${execTime}s` : 'N/A'}</span>
-                          </div>
-                          <div className="tool-stats-row">
-                            <span className="tool-stats-label">Status</span>
-                            <span className={`tool-stats-value ${toolData.success !== false ? 'success' : 'error'}`}>
-                              {toolData.success !== false ? '✓ Success' : '✗ Failed'}
-                            </span>
-                          </div>
-                          <div className="tool-stats-output">
-                            <div className="tool-stats-output-label">Full Output:</div>
-                            <div className="tool-stats-output-value">{truncatedOutput}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
 
                   {/* For direct responses, skip Stage 1 and Stage 2 */}
-                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
-                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.stage3?.type !== 'memory' && (
+                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && (
                     <>
-                      {/* Deliberation stages - collapsible when complete */}
                       {(() => {
                         const isDeliberationComplete = msg.stage3 && !msg.streaming?.stage3?.isStreaming;
                         
-                        // Deliberation content: Stage1, Stage2, and Stage3 loading/streaming
-                        // Stage3 final content is shown OUTSIDE the collapsible to avoid duplication
                         const deliberationContent = (
                           <>
                             {/* Stage 1 */}
@@ -617,7 +307,7 @@ export default function ChatInterface({
                               />
                             )}
 
-                            {/* Stage 3 loading indicator */}
+                            {/* Stage 3 loading */}
                             {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                               <div className="stage-loading">
                                 <div className="spinner"></div>
@@ -625,8 +315,7 @@ export default function ChatInterface({
                               </div>
                             )}
                             
-                            {/* Stage 3 streaming - only show while actively streaming, not when complete */}
-                            {/* Once complete, Stage3 is shown in final-answer-section instead */}
+                            {/* Stage 3 streaming */}
                             {!isDeliberationComplete && (msg.streaming?.stage3?.content) && (
                               <Stage3 
                                 finalResponse={null} 
@@ -637,17 +326,12 @@ export default function ChatInterface({
                           </>
                         );
 
-                        // When deliberation is complete, wrap everything in collapsible (closed by default)
                         if (isDeliberationComplete) {
                           return (
                             <div className="deliberation-wrapper">
-                              {/* Name overlay for deliberation process */}
-                              <div className="message-name-overlay deliberation-name">
-                                LLM Council
-                              </div>
+                              <div className="message-name-overlay deliberation-name">LLM Council</div>
                               <details className="deliberation-collapsible" open={false}>
                                 <summary className="deliberation-summary">
-                                  <span className="deliberation-icon">🤔</span>
                                   <span className="deliberation-text">Deliberation Process</span>
                                   <span className="deliberation-hint">(click to expand)</span>
                                 </summary>
@@ -658,15 +342,13 @@ export default function ChatInterface({
                             </div>
                           );
                         }
-                        // While deliberating, show all content expanded
                         return deliberationContent;
                       })()}
                     </>
                   )}
 
-                  {/* Stage 3 / Direct Response - shown outside collapsible for final answer */}
-                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
-                  {(msg.responseType === 'direct' || msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory') && (
+                  {/* Direct Response */}
+                  {(msg.responseType === 'direct' || msg.stage3?.type === 'direct') && (
                     <>
                       {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
                         <div className="stage-loading">
@@ -684,18 +366,12 @@ export default function ChatInterface({
                     </>
                   )}
 
-                  {/* Final Answer - shown prominently outside collapsible for deliberation */}
-                  {/* Check both msg.responseType (streaming) and msg.stage3?.type (saved) */}
-                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.stage3?.type !== 'memory' && msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
+                  {/* Final Answer - shown outside collapsible for deliberation */}
+                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
                     <div className="final-answer-section">
-                      {/* Name overlay for final answer - uses AI name or defaults */}
-                      <div className="message-name-overlay ai-name">
-                        {memoryNames.ai_name || 'Assistant'}
-                      </div>
+                      <div className="message-name-overlay ai-name">Council</div>
                       <div className="final-answer-header">
-                        <span className="final-answer-icon">✨</span>
                         <span className="final-answer-title">
-                          {/* Use conversation title if available, otherwise generic */}
                           {conversation?.title && !conversation.title.startsWith('Conversation ') 
                             ? conversation.title 
                             : 'Final Council Answer'}
@@ -717,19 +393,9 @@ export default function ChatInterface({
                     <div className="completion-message">
                       <span className="completion-icon">✓</span>
                       <span className="completion-text">
-                        {(msg.responseType === 'direct' || msg.stage3?.type === 'direct' || msg.stage3?.type === 'memory') ? 'Direct response complete' : 'Council deliberation complete'}
+                        {(msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct response complete' : 'Council deliberation complete'}
                       </span>
                     </div>
-                  )}
-                  {/* Tag bar for AI messages - only show when complete */}
-                  {msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
-                    <TagBar
-                      conversationId={conversationId}
-                      messageIndex={index}
-                      role="assistant"
-                      messageContent={msg.stage3?.response || ''}
-                      aiResponse={msg.stage3?.response || ''}
-                    />
                   )}
                 </div>
               )}
@@ -747,10 +413,6 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Show input form when:
-          1. Conversation is empty (initial state), OR
-          2. Last message is complete (has stage3 and not loading), OR
-          3. Editing a message */}
       {(editingIndex !== null || 
         messages.length === 0 || 
         (messages.length > 0 && 

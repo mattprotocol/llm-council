@@ -1,0 +1,127 @@
+.council-selector {
+  position: relative;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 12px;
+}
+
+.council-selector-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.council-selector-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.council-selector-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.council-selector-current {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.council-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.council-description {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.council-chevron {
+  font-size: 14px;
+  color: #888;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.council-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.council-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.council-option {
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+.council-option:last-child {
+  border-bottom: none;
+}
+
+.council-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.council-option.selected {
+  background: rgba(100, 140, 255, 0.12);
+}
+
+.council-option-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #e0e0e0;
+  margin-bottom: 2px;
+}
+
+.council-option-description {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.council-option-personas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.persona-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  color: #aaa;
+}

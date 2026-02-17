@@ -1,35 +1,38 @@
 /**
  * API client for the LLM Council backend.
+ * Uses relative URLs (proxied via Vite in dev, same-origin in prod).
  */
-
-const API_BASE = 'http://localhost:8001';
 
 export const api = {
   /**
-   * List all conversations.
+   * List available councils.
    */
-  async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
-    if (!response.ok) {
-      throw new Error('Failed to list conversations');
-    }
+  async listCouncils() {
+    const response = await fetch('/api/councils');
+    if (!response.ok) throw new Error('Failed to list councils');
+    return response.json();
+  },
+
+  /**
+   * List conversations, optionally filtered by council.
+   */
+  async listConversations(councilId = null) {
+    const params = councilId ? `?council_id=${councilId}` : '';
+    const response = await fetch(`/api/conversations${params}`);
+    if (!response.ok) throw new Error('Failed to list conversations');
     return response.json();
   },
 
   /**
    * Create a new conversation.
    */
-  async createConversation() {
-    const response = await fetch(`${API_BASE}/api/conversations`, {
+  async createConversation(councilId = 'personal') {
+    const response = await fetch('/api/conversations', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ council_id: councilId }),
     });
-    if (!response.ok) {
-      throw new Error('Failed to create conversation');
-    }
+    if (!response.ok) throw new Error('Failed to create conversation');
     return response.json();
   },
 
@@ -37,115 +40,36 @@ export const api = {
    * Get a specific conversation.
    */
   async getConversation(conversationId) {
-    const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}`
-    );
-    if (!response.ok) {
-      throw new Error('Failed to get conversation');
-    }
+    const response = await fetch(`/api/conversations/${conversationId}`);
+    if (!response.ok) throw new Error('Failed to get conversation');
     return response.json();
   },
 
   /**
-   * Send a message in a conversation.
+   * Delete a conversation.
    */
-  async sendMessage(conversationId, content) {
-    const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/message`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
-      }
-    );
-    if (!response.ok) {
-      throw new Error('Failed to send message');
-    }
+  async deleteConversation(conversationId, councilId = 'personal') {
+    const response = await fetch(`/api/conversations/${conversationId}?council_id=${councilId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete conversation');
     return response.json();
   },
 
   /**
-   * Send a message and receive streaming updates (stage-level).
-   * @param {string} conversationId - The conversation ID
-   * @param {string} content - The message content
-   * @param {function} onEvent - Callback function for each event: (eventType, data) => void
-   * @returns {Promise<void>}
+   * Send a message with token-level streaming.
    */
-  async sendMessageStream(conversationId, content, onEvent) {
+  async sendMessageStreamTokens(conversationId, content, onEvent, councilId = 'personal') {
     const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/message/stream`,
+      `/api/conversations/${conversationId}/message/stream-tokens`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, council_id: councilId }),
       }
     );
 
-    if (!response.ok) {
-      throw new Error('Failed to send message');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          try {
-            const event = JSON.parse(data);
-            onEvent(event.type, event);
-          } catch (e) {
-            console.error('Failed to parse SSE event:', e);
-          }
-        }
-      }
-    }
-  },
-
-  /**
-   * Send a message and receive token-level streaming updates.
-   * @param {string} conversationId - The conversation ID
-   * @param {string} content - The message content
-   * @param {function} onEvent - Callback function for each event: (eventType, data) => void
-   * @returns {Promise<void>}
-   */
-  async sendMessageStreamTokens(conversationId, content, onEvent, truncateAt = null, skipUserMessage = false, regenerateTitle = false) {
-    const body = { content };
-    if (truncateAt !== null) {
-      body.truncate_at = truncateAt;
-    }
-    if (skipUserMessage) {
-      body.skip_user_message = true;
-    }
-    if (regenerateTitle) {
-      body.regenerate_title = true;
-    }
-    
-    const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/message/stream-tokens`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to send message');
-    }
+    if (!response.ok) throw new Error('Failed to send message');
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -157,18 +81,12 @@ export const api = {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      
-      // Keep the last incomplete line in the buffer
       buffer = lines.pop() || '';
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
-          const data = line.slice(6);
           try {
-            const event = JSON.parse(data);
-            if (event.type === 'title_complete') {
-              console.log('[API] title_complete SSE event received:', event);
-            }
+            const event = JSON.parse(line.slice(6));
             onEvent(event.type, event);
           } catch (e) {
             console.error('Failed to parse SSE event:', e);
@@ -176,109 +94,31 @@ export const api = {
         }
       }
     }
-    
-    // Process any remaining data
+
     if (buffer.startsWith('data: ')) {
       try {
         const event = JSON.parse(buffer.slice(6));
-        if (event.type === 'title_complete') {
-          console.log('[API] title_complete SSE event received (final):', event);
-        }
         onEvent(event.type, event);
-      } catch (e) {
-        // Ignore incomplete final chunk
-      }
+      } catch (e) { /* ignore */ }
     }
   },
 
   /**
-   * Get MCP server status and available tools.
+   * Get leaderboard data.
    */
-  async getMcpStatus() {
-    const response = await fetch(`${API_BASE}/api/mcp/status`);
-    if (!response.ok) {
-      throw new Error('Failed to get MCP status');
-    }
+  async getLeaderboard(councilId = null) {
+    const url = councilId ? `/api/leaderboard/${councilId}` : '/api/leaderboard';
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to get leaderboard');
     return response.json();
   },
 
   /**
-   * Get user and AI names from memory.
+   * Health check.
    */
-  async getMemoryNames() {
-    const response = await fetch(`${API_BASE}/api/memory/names`);
-    if (!response.ok) {
-      throw new Error('Failed to get memory names');
-    }
-    return response.json();
-  },
-
-  // ===== TAG API =====
-
-  /**
-   * Get all known tags for autocomplete.
-   */
-  async getAllTags() {
-    const response = await fetch(`${API_BASE}/api/tags`);
-    if (!response.ok) {
-      throw new Error('Failed to get tags');
-    }
-    return response.json();
-  },
-
-  /**
-   * Generate tags for a message exchange.
-   */
-  async generateTags(userMessage, aiResponse, existingTags = []) {
-    const response = await fetch(`${API_BASE}/api/tags/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_message: userMessage,
-        ai_response: aiResponse,
-        existing_tags: existingTags,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to generate tags');
-    }
-    return response.json();
-  },
-
-  /**
-   * Check for missing tags and get suggestions.
-   */
-  async checkMissingTags(userMessage, aiResponse, currentTags = []) {
-    const response = await fetch(`${API_BASE}/api/tags/check-missing`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_message: userMessage,
-        ai_response: aiResponse,
-        existing_tags: currentTags,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to check missing tags');
-    }
-    return response.json();
-  },
-
-  /**
-   * Add tags to a specific message.
-   */
-  async addMessageTags(conversationId, messageIndex, tags) {
-    const response = await fetch(
-      `${API_BASE}/api/conversations/${conversationId}/messages/${messageIndex}/tags`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
-      }
-    );
-    if (!response.ok) {
-      throw new Error('Failed to add tags');
-    }
+  async healthCheck() {
+    const response = await fetch('/api/health');
+    if (!response.ok) throw new Error('Health check failed');
     return response.json();
   },
 };

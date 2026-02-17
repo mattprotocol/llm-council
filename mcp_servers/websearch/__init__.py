@@ -1,1 +1,0 @@
-# Web Search MCP Server
