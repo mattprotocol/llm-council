@@ -38,9 +38,7 @@ async def query_model(
         connection_timeout = 30
 
     headers = _get_headers()
-    payload = {"model": model, "messages": messages}
-    if max_tokens:
-        payload["max_tokens"] = max_tokens
+    payload = {"model": model, "messages": messages, "max_tokens": max_tokens or 4096}
     if temperature is not None:
         payload["temperature"] = temperature
 
@@ -65,10 +63,12 @@ async def query_model(
             if not content and reasoning_content:
                 content = reasoning_content
 
+            usage = data.get("usage", {})
             return {
                 "content": content,
                 "reasoning_content": reasoning_content,
                 "reasoning_details": choice.get("reasoning_details"),
+                "usage": usage,
             }
     except httpx.HTTPStatusError as e:
         print(f"HTTP error querying {model}: {e}")
@@ -146,12 +146,11 @@ async def query_model_streaming(
         connection_timeout = 30
 
     headers = _get_headers()
-    payload = {"model": model, "messages": messages, "stream": True}
-    if max_tokens:
-        payload["max_tokens"] = max_tokens
+    payload = {"model": model, "messages": messages, "stream": True, "max_tokens": max_tokens or 4096}
 
     content_buffer = ""
     reasoning_buffer = ""
+    captured_usage = {}
 
     try:
         timeout_config = httpx.Timeout(
@@ -173,6 +172,9 @@ async def query_model_streaming(
                         break
                     try:
                         data = json.loads(data_str)
+                        chunk_usage = data.get("usage")
+                        if chunk_usage:
+                            captured_usage = chunk_usage
                         delta = data.get("choices", [{}])[0].get("delta", {})
 
                         reasoning_delta = delta.get("reasoning_content", "")
@@ -191,11 +193,11 @@ async def query_model_streaming(
                     except json.JSONDecodeError:
                         continue
 
-        yield {"type": "complete", "content": content_buffer, "reasoning_content": reasoning_buffer}
+        yield {"type": "complete", "content": content_buffer, "reasoning_content": reasoning_buffer, "usage": captured_usage}
 
     except Exception as e:
         print(f"Streaming error for {model}: {e}")
-        yield {"type": "error", "error": str(e), "content": content_buffer, "reasoning_content": reasoning_buffer}
+        yield {"type": "error", "error": str(e), "content": content_buffer, "reasoning_content": reasoning_buffer, "usage": captured_usage}
 
 
 async def validate_openrouter_models(model_ids: List[str]) -> Dict[str, bool]:
