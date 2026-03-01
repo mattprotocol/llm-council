@@ -41,7 +41,6 @@ def create_conversation(conversation_id: str, council_id: str = "personal") -> D
 def get_conversation(conversation_id: str, council_id: str = "personal") -> Optional[Dict[str, Any]]:
     path = get_conversation_path(conversation_id, council_id)
     if not os.path.exists(path):
-        # Search all councils if not found in specified one
         for cdir in BASE_DATA_DIR.iterdir():
             if cdir.is_dir():
                 alt_path = cdir / f"{conversation_id}.json"
@@ -91,15 +90,14 @@ def soft_delete_conversation(conversation_id: str, council_id: str = "personal")
 
 
 def list_conversations(council_id: Optional[str] = None) -> List[Dict[str, Any]]:
-    """List conversations, optionally filtered by council."""
     conversations = []
-    
+
     if council_id:
         dirs = [_council_dir(council_id)]
     else:
         BASE_DATA_DIR.mkdir(parents=True, exist_ok=True)
         dirs = [d for d in BASE_DATA_DIR.iterdir() if d.is_dir()]
-    
+
     for data_dir in dirs:
         if not data_dir.exists():
             continue
@@ -123,7 +121,7 @@ def list_conversations(council_id: Optional[str] = None) -> List[Dict[str, Any]]
                 })
             except Exception as e:
                 print(f"Error reading {filename}: {e}")
-    
+
     def sort_key(conv):
         ca = conv["created_at"]
         if isinstance(ca, str):
@@ -132,7 +130,7 @@ def list_conversations(council_id: Optional[str] = None) -> List[Dict[str, Any]]
             except Exception:
                 return 0
         return float(ca) if ca else 0
-    
+
     conversations.sort(key=sort_key, reverse=True)
     return conversations
 
@@ -152,6 +150,8 @@ def add_assistant_message(
     stage3: Dict[str, Any],
     council_id: str = "personal",
     analysis: Optional[Dict[str, Any]] = None,
+    panel: Optional[List[Dict[str, str]]] = None,
+    usage: Optional[Dict[str, Any]] = None,
 ):
     conversation = get_conversation(conversation_id, council_id)
     if conversation is None:
@@ -164,6 +164,10 @@ def add_assistant_message(
     }
     if analysis:
         message["analysis"] = analysis
+    if panel:
+        message["panel"] = panel
+    if usage:
+        message["usage"] = usage
     conversation["messages"].append(message)
     save_conversation(conversation)
 
