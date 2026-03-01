@@ -87,6 +87,47 @@ class TokenTracker:
         return {"total_seconds": round(now - start, 1), "total_tokens": self.token_counts.get(key, 0)}
 
 
+# ============== Usage Aggregation ==============
+
+class UsageAggregator:
+    """Aggregates token usage and costs across multiple API calls."""
+    def __init__(self):
+        self.calls = []
+
+    def record(self, stage: str, model: str, usage: dict, member_id: str = ""):
+        if usage:
+            self.calls.append({
+                "stage": stage, "model": model,
+                "member_id": member_id, "usage": usage,
+            })
+
+    def get_stage_summary(self, stage: str) -> dict:
+        stage_calls = [c for c in self.calls if c["stage"] == stage]
+        return {
+            "prompt_tokens": sum(c["usage"].get("prompt_tokens", 0) for c in stage_calls),
+            "completion_tokens": sum(c["usage"].get("completion_tokens", 0) for c in stage_calls),
+            "total_tokens": sum(c["usage"].get("total_tokens", 0) for c in stage_calls),
+            "cost": sum(c["usage"].get("cost", 0) for c in stage_calls),
+            "calls": len(stage_calls),
+        }
+
+    def get_total(self) -> dict:
+        return {
+            "prompt_tokens": sum(c["usage"].get("prompt_tokens", 0) for c in self.calls),
+            "completion_tokens": sum(c["usage"].get("completion_tokens", 0) for c in self.calls),
+            "total_tokens": sum(c["usage"].get("total_tokens", 0) for c in self.calls),
+            "cost": sum(c["usage"].get("cost", 0) for c in self.calls),
+            "calls": len(self.calls),
+        }
+
+    def get_breakdown(self) -> dict:
+        stages = sorted(set(c["stage"] for c in self.calls))
+        return {
+            "by_stage": {s: self.get_stage_summary(s) for s in stages},
+            "total": self.get_total(),
+        }
+
+
 # ============== JSON Extraction ==============
 
 def _extract_json_from_response(text: str) -> Optional[Dict]:
@@ -143,7 +184,7 @@ def _is_followup_heuristic(query: str, has_history: bool) -> Optional[Dict[str, 
 
     for phrase in followup_phrases:
         if phrase in query_lower:
-            return {"type": "followup", "reasoning": f"Heuristic: contains '{phrase}'"}
+            return {"type": "followup", "reasoning": f"Heuristic: contains '{phrase}'", "usage": {}}
 
     # Short messages with pronouns that need prior context
     if len(query_lower.split()) <= 15:
@@ -153,7 +194,7 @@ def _is_followup_heuristic(query: str, has_history: bool) -> Optional[Dict[str, 
             if pronoun in words:
                 # Check it's not a self-contained question like "what is that thing called a..."
                 if not any(w in query_lower for w in ["what is a", "what is an", "define ", "who is "]):
-                    return {"type": "followup", "reasoning": f"Heuristic: short message with context-dependent pronoun '{pronoun}'"}
+                    return {"type": "followup", "reasoning": f"Heuristic: short message with context-dependent pronoun '{pronoun}'", "usage": {}}
 
     return None
 
@@ -204,17 +245,18 @@ Rules:
     try:
         response = await query_model_with_retry(title_model, messages, timeout=30.0, max_retries=1, temperature=0.0)
         if not response or not response.get("content"):
-            return {"type": "deliberation", "reasoning": "Classification failed"}
+            return {"type": "deliberation", "reasoning": "Classification failed", "usage": {}}
 
         result = _extract_json_from_response(response["content"].strip())
         if result and "type" in result:
             if result["type"] not in ["factual", "chat", "deliberation", "followup"]:
                 result["type"] = "deliberation"
+            result["usage"] = response.get("usage", {})
             return result
 
-        return {"type": "deliberation", "reasoning": "Parse failed"}
+        return {"type": "deliberation", "reasoning": "Parse failed", "usage": response.get("usage", {})}
     except Exception as e:
-        return {"type": "deliberation", "reasoning": f"Error: {str(e)[:30]}"}
+        return {"type": "deliberation", "reasoning": f"Error: {str(e)[:30]}", "usage": {}}
 
 
 # ============== Stage 0b: Route Question (NEW) ==============
@@ -223,14 +265,16 @@ async def stage0_route_question(
     user_query: str,
     council_id: str,
     on_event: Optional[Callable] = None,
-) -> List[Dict[str, str]]:
+) -> Tuple[List[Dict[str, str]], Dict[str, Any]]:
     """Route a question to the most relevant advisors from the council roster.
 
-    Returns a panel: list of {"advisor_id": ..., "model": ..., "reasoning": ...}
+    Returns a tuple of (panel, usage):
+      - panel: list of {"advisor_id": ..., "model": ..., "reasoning": ...}
+      - usage: usage dict from the routing API call
     """
     advisors = get_advisor_roster_summary(council_id)
     if not advisors:
-        return []
+        return [], {}
 
     routing_config = get_routing_config(council_id)
     min_advisors = routing_config.get("min_advisors", 3)
@@ -280,12 +324,14 @@ Respond with ONLY a JSON object:
         response = await query_model_with_retry(
             title_model, messages, timeout=30.0, max_retries=1, temperature=0.3
         )
+        routing_usage = response.get("usage", {}) if response else {}
+
         if not response or not response.get("content"):
-            return _fallback_panel(advisors, all_models, default_advisors)
+            return _fallback_panel(advisors, all_models, default_advisors), routing_usage
 
         result = _extract_json_from_response(response["content"].strip())
         if not result or "panel" not in result:
-            return _fallback_panel(advisors, all_models, default_advisors)
+            return _fallback_panel(advisors, all_models, default_advisors), routing_usage
 
         # Validate panel
         panel = result["panel"]
@@ -307,16 +353,16 @@ Respond with ONLY a JSON object:
             })
 
         if len(validated) < min_advisors:
-            return _fallback_panel(advisors, all_models, default_advisors)
+            return _fallback_panel(advisors, all_models, default_advisors), routing_usage
 
         # Trim to max
         validated = validated[:max_advisors]
 
-        return validated
+        return validated, routing_usage
 
     except Exception as e:
         print(f"Router error: {e}")
-        return _fallback_panel(advisors, all_models, default_advisors)
+        return _fallback_panel(advisors, all_models, default_advisors), {}
 
 
 def _fallback_panel(
@@ -358,8 +404,8 @@ async def chairman_direct_response(
 
     response = await query_model_with_retry(CHAIRMAN_MODEL, messages, timeout=60.0)
     if response and response.get("content"):
-        return {"model": CHAIRMAN_MODEL, "response": response["content"]}
-    return {"model": CHAIRMAN_MODEL, "response": "I apologize, I was unable to generate a response."}
+        return {"model": CHAIRMAN_MODEL, "response": response["content"], "usage": response.get("usage", {})}
+    return {"model": CHAIRMAN_MODEL, "response": "I apologize, I was unable to generate a response.", "usage": {}}
 
 
 # ============== Ranking Parser ==============
@@ -463,6 +509,7 @@ async def stage1_collect_responses_streaming(
 
         content = ""
         reasoning = ""
+        member_usage = {}
 
         async for chunk in query_model_streaming(member.model, messages):
             if chunk["type"] == "token":
@@ -484,6 +531,7 @@ async def stage1_collect_responses_streaming(
                     "tokens_per_second": tps, **token_tracker.get_timing(tracker_key),
                 })
             elif chunk["type"] == "complete":
+                member_usage = chunk.get("usage", {})
                 final = chunk["content"]
                 if not final and chunk.get("reasoning_content"):
                     final = chunk["reasoning_content"]
@@ -492,6 +540,7 @@ async def stage1_collect_responses_streaming(
                     "model": member.model, "role": member.role,
                     "member_id": member.member_id,
                     "response": final,
+                    "usage": member_usage,
                     "tokens_per_second": token_tracker.get_final_tps(tracker_key),
                     **token_tracker.get_final_timing(tracker_key),
                 })
@@ -499,6 +548,7 @@ async def stage1_collect_responses_streaming(
                     "model": member.model, "role": member.role,
                     "member_id": member.member_id,
                     "response": final,
+                    "usage": member_usage,
                 }
             elif chunk["type"] == "error":
                 on_event("stage1_model_error", {
@@ -513,6 +563,7 @@ async def stage1_collect_responses_streaming(
                 "model": member.model, "role": member.role,
                 "member_id": member.member_id,
                 "response": content,
+                "usage": member_usage,
             }
         return None
 
@@ -607,6 +658,7 @@ Then provide your FINAL RANKING:
             messages.append({"role": "user", "content": ranking_prompt})
 
             content = ""
+            ranking_usage = {}
             async for chunk in query_model_streaming(member.model, messages):
                 if chunk["type"] == "token":
                     content = chunk["content"]
@@ -626,6 +678,7 @@ Then provide your FINAL RANKING:
                         "round": round_num, "tokens_per_second": tps,
                     })
                 elif chunk["type"] == "complete":
+                    ranking_usage = chunk.get("usage", {})
                     full_text = chunk["content"]
                     parsed = parse_ranking_from_text(full_text)
                     ratings = extract_quality_ratings(full_text)
@@ -637,6 +690,7 @@ Then provide your FINAL RANKING:
                         "ranking": full_text,
                         "parsed_ranking": parsed, "quality_ratings": ratings,
                         "rubric_scores": rubric_scores, "round": round_num,
+                        "usage": ranking_usage,
                     })
                     return {
                         "model": member.model, "member_id": member.member_id,
@@ -644,6 +698,7 @@ Then provide your FINAL RANKING:
                         "ranking": full_text,
                         "parsed_ranking": parsed, "quality_ratings": ratings,
                         "rubric_scores": rubric_scores, "round": round_num,
+                        "usage": ranking_usage,
                     }
                 elif chunk["type"] == "error":
                     return None
@@ -657,6 +712,7 @@ Then provide your FINAL RANKING:
                     "ranking": content,
                     "parsed_ranking": parsed, "quality_ratings": ratings,
                     "round": round_num,
+                    "usage": ranking_usage,
                 }
             return None
 
@@ -802,6 +858,7 @@ Provide the refined, synthesized final answer:"""
     content = ""
     reasoning = ""
     token_tracker = TokenTracker()
+    stage3_usage = {}
 
     async for chunk in query_model_streaming(CHAIRMAN_MODEL, messages):
         if chunk["type"] == "token":
@@ -820,18 +877,20 @@ Provide the refined, synthesized final answer:"""
                 "thinking": reasoning, "tokens_per_second": tps,
             })
         elif chunk["type"] == "complete":
+            stage3_usage = chunk.get("usage", {})
             final = chunk["content"]
             if not final and chunk.get("reasoning_content"):
                 final = chunk["reasoning_content"]
             final = strip_fake_images(final)
             on_event("stage3_complete", {
                 "model": CHAIRMAN_MODEL, "response": final,
+                "usage": stage3_usage,
                 "tokens_per_second": token_tracker.get_final_tps(CHAIRMAN_MODEL),
                 **token_tracker.get_final_timing(CHAIRMAN_MODEL),
             })
-            return {"model": CHAIRMAN_MODEL, "response": final}
+            return {"model": CHAIRMAN_MODEL, "response": final, "usage": stage3_usage}
         elif chunk["type"] == "error":
             on_event("stage3_error", {"model": CHAIRMAN_MODEL, "error": chunk["error"]})
-            return {"model": CHAIRMAN_MODEL, "response": strip_fake_images(content) if content else "Error: Unable to generate synthesis."}
+            return {"model": CHAIRMAN_MODEL, "response": strip_fake_images(content) if content else "Error: Unable to generate synthesis.", "usage": stage3_usage}
 
-    return {"model": CHAIRMAN_MODEL, "response": strip_fake_images(content) if content else "Error: Unable to generate synthesis."}
+    return {"model": CHAIRMAN_MODEL, "response": strip_fake_images(content) if content else "Error: Unable to generate synthesis.", "usage": stage3_usage}
