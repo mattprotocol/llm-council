@@ -325,6 +325,7 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 )
                 if classification.get("usage"):
                     usage_tracker.record("classification", get_title_model(), classification["usage"])
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'classification', 'usage': usage_tracker.get_stage_summary('classification'), 'running_total': usage_tracker.get_total()})}\n\n"
                 yield f"data: {json.dumps({'type': 'classification_complete', **classification})}\n\n"
 
                 msg_type = classification.get("type", "deliberation")
@@ -339,6 +340,7 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 )
                 if result.get("usage"):
                     usage_tracker.record("direct", result.get("model", ""), result["usage"])
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'direct', 'usage': usage_tracker.get_stage_summary('direct'), 'running_total': usage_tracker.get_total()})}\n\n"
                 response_text = result.get("response", "")
 
                 yield f"data: {json.dumps({'type': 'stage3_complete', 'model': result.get('model', ''), 'response': response_text})}\n\n"
@@ -367,6 +369,7 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 panel, routing_usage = await stage0_route_question(content, council_id)
                 if routing_usage:
                     usage_tracker.record("routing", get_title_model(), routing_usage)
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'routing', 'usage': usage_tracker.get_stage_summary('routing'), 'running_total': usage_tracker.get_total()})}\n\n"
 
                 yield f"data: {json.dumps({'type': 'routing_complete', 'panel': panel})}\n\n"
 

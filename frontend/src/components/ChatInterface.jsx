@@ -3,6 +3,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import UsageBanner from './UsageBanner';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -391,6 +392,14 @@ export default function ChatInterface({
                         />
                       </div>
                     </div>
+                  )}
+
+                  {/* Usage Banner */}
+                  {msg.usage && (
+                    <UsageBanner
+                      usage={msg.usage}
+                      isStreaming={!msg.stage3 || msg.streaming?.stage3?.isStreaming}
+                    />
                   )}
 
                   {/* Completion indicator */}

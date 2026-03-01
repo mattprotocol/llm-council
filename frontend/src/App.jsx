@@ -262,7 +262,22 @@ function App() {
                 lastMsg.responseType = "direct";
                 break;
 
+              case "usage_update":
+                lastMsg.usage = {
+                  ...(lastMsg.usage || {}),
+                  by_stage: {
+                    ...(lastMsg.usage?.by_stage || {}),
+                    [data.stage]: data.usage,
+                  },
+                  total: data.running_total,
+                  running_total: data.running_total,
+                };
+                break;
+
               case "done":
+                if (data.usage) {
+                  lastMsg.usage = data.usage;
+                }
                 break;
 
               case "error":
