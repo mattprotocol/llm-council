@@ -1,5 +1,6 @@
 """FastAPI backend for multi-council LLM deliberation."""
 
+import re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -14,10 +15,12 @@ from . import storage
 from .council import (
     classify_message,
     chairman_direct_response,
+    stage0_route_question,
     stage1_collect_responses_streaming,
     stage2_collect_rankings_streaming,
     stage3_synthesize_streaming,
     calculate_aggregate_rankings,
+    UsageAggregator,
 )
 from .config_loader import (
     load_config,
@@ -26,8 +29,16 @@ from .config_loader import (
     get_council,
     get_council_models,
     get_title_model,
+    save_models_config,
+    save_council_config,
+    delete_council_config,
+    reload_config,
+    get_advisors,
+    get_advisor_roster_summary,
+    get_routing_config,
 )
-from .leaderboard import get_council_leaderboard, get_all_leaderboards
+from .config import reload_runtime_config
+from .leaderboard import get_council_leaderboard, get_all_leaderboards, get_advisor_leaderboard, get_all_advisor_leaderboards, record_deliberation_result, record_advisor_selection
 
 
 @asynccontextmanager
@@ -40,7 +51,6 @@ async def lifespan(app: FastAPI):
     print(f"Loaded {len(councils)} councils: {list(councils.keys())}")
     print(f"Council models: {models}")
 
-    # Validate models on OpenRouter
     try:
         from .openrouter import validate_openrouter_models
         availability = await validate_openrouter_models(models)
@@ -65,16 +75,129 @@ app.add_middleware(
 )
 
 
-# ========== Models ==========
+# ========== Request Models ==========
 
 
 class MessageRequest(BaseModel):
     content: str
     council_id: str = "personal"
+    panel_override: Optional[List[Dict[str, str]]] = None
+    force_direct: bool = False
+
+
+class RouteRequest(BaseModel):
+    question: str
 
 
 class CreateConversationRequest(BaseModel):
     council_id: str = "personal"
+
+
+class ModelsConfigRequest(BaseModel):
+    models: List[Dict[str, str]]
+    chairman: str
+    title_model: Optional[str] = None
+    deliberation: Optional[Dict[str, Any]] = None
+
+
+class CouncilConfigRequest(BaseModel):
+    name: str
+    description: str = ""
+    type: str = "persona"
+    default_model: str = ""
+    personas: List[Dict[str, str]] = []
+    rubric: List[Dict[str, Any]] = []
+    models: List[str] = []
+
+
+class CreateCouncilRequest(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    type: str = "persona"
+    default_model: str = ""
+    personas: List[Dict[str, str]] = []
+    rubric: List[Dict[str, Any]] = []
+    models: List[str] = []
+
+
+# ========== Config Endpoints ==========
+
+
+@app.get("/api/config")
+async def get_config():
+    config = load_config()
+    return config
+
+
+@app.put("/api/config")
+async def update_config(request: ModelsConfigRequest):
+    try:
+        data = request.model_dump(exclude_none=True)
+        saved = save_models_config(data)
+        reload_runtime_config()
+        return {"status": "ok", "config": saved}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
+
+
+# ========== Council Config Endpoints ==========
+
+
+@app.post("/api/councils")
+async def create_council(request: CreateCouncilRequest):
+    council_id = request.id
+    if not re.match(r'^[a-z0-9][a-z0-9-]*$', council_id):
+        raise HTTPException(status_code=400, detail="Council ID must be lowercase alphanumeric with hyphens")
+
+    existing = get_council(council_id)
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Council '{council_id}' already exists")
+
+    try:
+        data = request.model_dump(exclude={"id"})
+        if not data.get("models"):
+            data.pop("models", None)
+        if not data.get("default_model"):
+            data.pop("default_model", None)
+        saved = save_council_config(council_id, data)
+        reload_runtime_config()
+        return {"status": "ok", "council": saved}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.put("/api/councils/{council_id}")
+async def update_council(council_id: str, request: CouncilConfigRequest):
+    existing = get_council(council_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Council '{council_id}' not found")
+
+    try:
+        data = request.model_dump()
+        if not data.get("models"):
+            data.pop("models", None)
+        if not data.get("default_model"):
+            data.pop("default_model", None)
+        saved = save_council_config(council_id, data)
+        reload_runtime_config()
+        return {"status": "ok", "council": saved}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.delete("/api/councils/{council_id}")
+async def delete_council_endpoint(council_id: str):
+    try:
+        delete_council_config(council_id)
+        reload_runtime_config()
+        return {"status": "ok"}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Council '{council_id}' not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ========== Council Endpoints ==========
@@ -91,6 +214,47 @@ async def get_council_detail(council_id: str):
     if not council:
         raise HTTPException(status_code=404, detail=f"Council {council_id} not found")
     return council
+
+
+# ========== Advisor & Routing Endpoints (NEW) ==========
+
+
+@app.get("/api/councils/{council_id}/advisors")
+async def list_advisors(council_id: str):
+    """List the full advisor roster for a council."""
+    council = get_council(council_id)
+    if not council:
+        raise HTTPException(status_code=404, detail=f"Council {council_id} not found")
+    advisors = get_advisors(council_id)
+    routing = get_routing_config(council_id)
+    return {
+        "council_id": council_id,
+        "advisors": advisors,
+        "routing": routing,
+        "models": get_council_models(),
+    }
+
+
+@app.post("/api/councils/{council_id}/route")
+async def route_question(council_id: str, request: RouteRequest):
+    """Route a question to the most relevant advisors."""
+    council = get_council(council_id)
+    if not council:
+        raise HTTPException(status_code=404, detail=f"Council {council_id} not found")
+
+    panel, _routing_usage = await stage0_route_question(request.question, council_id)
+    advisors = get_advisors(council_id)
+    routing = get_routing_config(council_id)
+
+    return {
+        "panel": panel,
+        "available_advisors": [
+            {"id": a["id"], "name": a["name"], "role": a.get("role", ""), "tags": a.get("tags", [])}
+            for a in advisors
+        ],
+        "routing": routing,
+        "models": get_council_models(),
+    }
 
 
 # ========== Conversation Endpoints ==========
@@ -131,89 +295,127 @@ async def delete_conversation(conversation_id: str, council_id: str = "personal"
 async def send_message_stream_tokens(conversation_id: str, request: MessageRequest):
     council_id = request.council_id
     content = request.content
+    panel_override = request.panel_override
+    force_direct = request.force_direct
 
-    # Load or create conversation
     conversation = storage.get_conversation(conversation_id, council_id)
     if not conversation:
         conversation = storage.create_conversation(conversation_id, council_id)
 
-    # Add user message
     storage.add_user_message(conversation_id, content, council_id)
 
     async def event_stream():
+        panel = panel_override  # May be None
+        conversation_history = conversation.get("messages", [])
+        usage_tracker = UsageAggregator()
+
         try:
-            # Stage 0: Classify
-            yield f"data: {json.dumps({'type': 'classification_start'})}\n\n"
+            # Force direct: skip classification entirely, go straight to chairman
+            if force_direct:
+                classification = {"type": "direct", "reasoning": "User requested chairman-only response"}
+                yield f"data: {json.dumps({'type': 'classification_complete', **classification})}\n\n"
+                msg_type = "direct"
+            else:
+                # Stage 0: Classify (with history for follow-up detection)
+                yield f"data: {json.dumps({'type': 'classification_start'})}\n\n"
 
-            classification = await classify_message(content)
-            yield f"data: {json.dumps({'type': 'classification_complete', **classification})}\n\n"
+                classification = await classify_message(
+                    content,
+                    conversation_history=conversation_history,
+                )
+                if classification.get("usage"):
+                    usage_tracker.record("classification", get_title_model(), classification["usage"])
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'classification', 'usage': usage_tracker.get_stage_summary('classification'), 'running_total': usage_tracker.get_total()})}\n\n"
+                yield f"data: {json.dumps({'type': 'classification_complete', **classification})}\n\n"
 
-            msg_type = classification.get("type", "deliberation")
+                msg_type = classification.get("type", "deliberation")
 
-            if msg_type in ("factual", "chat"):
-                # Direct chairman response
+            if msg_type in ("factual", "chat", "followup", "direct"):
                 yield f"data: {json.dumps({'type': 'direct_start'})}\n\n"
 
-                conversation_history = conversation.get("messages", [])
                 result = await chairman_direct_response(
                     content,
                     tool_result=None,
                     conversation_history=conversation_history,
                 )
+                if result.get("usage"):
+                    usage_tracker.record("direct", result.get("model", ""), result["usage"])
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'direct', 'usage': usage_tracker.get_stage_summary('direct'), 'running_total': usage_tracker.get_total()})}\n\n"
                 response_text = result.get("response", "")
 
                 yield f"data: {json.dumps({'type': 'stage3_complete', 'model': result.get('model', ''), 'response': response_text})}\n\n"
 
+                final_usage = usage_tracker.get_breakdown()
                 storage.add_assistant_message(
                     conversation_id,
                     stage1=[],
                     stage2=[],
                     stage3={"model": result.get("model", ""), "response": response_text},
                     council_id=council_id,
+                    usage=final_usage,
                 )
 
-                # Generate title
-                await _generate_title(conversation_id, council_id, content, response_text, event_stream_yield=None)
-
-                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                title_usage = await _generate_title(conversation_id, council_id, content, response_text)
+                if title_usage:
+                    usage_tracker.record("title", get_title_model(), title_usage)
+                final_usage = usage_tracker.get_breakdown()
+                yield f"data: {json.dumps({'type': 'done', 'usage': final_usage})}\n\n"
                 return
 
-            # Full deliberation
-            # Stage 1: Collect responses with persona injection
-            stage1_results = []
+            # Route question if no panel override provided
+            if panel is None:
+                yield f"data: {json.dumps({'type': 'routing_start'})}\n\n"
 
-            def on_stage1_event(event_type, data):
-                nonlocal stage1_results
-                if event_type == "stage1_model_complete":
-                    stage1_results.append({
-                        "model": data.get("model", ""),
-                        "response": data.get("response", ""),
-                    })
+                panel, routing_usage = await stage0_route_question(content, council_id)
+                if routing_usage:
+                    usage_tracker.record("routing", get_title_model(), routing_usage)
+                    yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'routing', 'usage': usage_tracker.get_stage_summary('routing'), 'running_total': usage_tracker.get_total()})}\n\n"
 
+                yield f"data: {json.dumps({'type': 'routing_complete', 'panel': panel})}\n\n"
+
+            yield f"data: {json.dumps({'type': 'panel_confirmed', 'panel': panel})}\n\n"
+
+            # Track advisor selection for leaderboard
+            if panel:
+                try:
+                    record_advisor_selection(council_id, panel)
+                except Exception:
+                    pass  # non-critical
+
+            # Stage 1: Collect responses from panel (with conversation history)
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
 
             stage1_results = await stage1_collect_responses_streaming(
                 content,
-                on_event=lambda t, d: None,  # We'll capture via the yielded events
+                on_event=lambda t, d: None,
                 council_id=council_id,
+                panel=panel,
+                conversation_history=conversation_history,
             )
 
             for result in stage1_results:
-                yield f"data: {json.dumps({'type': 'stage1_model_complete', 'model': result['model'], 'response': result['response']})}\n\n"
+                yield f"data: {json.dumps({'type': 'stage1_model_complete', 'model': result['model'], 'role': result.get('role', ''), 'member_id': result.get('member_id', ''), 'response': result['response']})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'results': [{'model': r['model']} for r in stage1_results]})}\n\n"
+            yield f"data: {json.dumps({'type': 'stage1_complete', 'results': [{'model': r['model'], 'role': r.get('role', ''), 'member_id': r.get('member_id', '')} for r in stage1_results]})}\n\n"
+
+            # Record stage1 usage
+            for result in stage1_results:
+                if result.get("usage"):
+                    usage_tracker.record("stage1", result["model"], result["usage"], member_id=result.get("member_id", ""))
+            yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'stage1', 'usage': usage_tracker.get_stage_summary('stage1'), 'running_total': usage_tracker.get_total()})}\n\n"
 
             if not stage1_results:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'No models responded in Stage 1'})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No advisors responded in Stage 1'})}\n\n"
                 return
 
-            # Stage 2: Rankings with rubric scoring
+            # Stage 2: Rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
 
             stage2_results, label_to_model, deliberation_meta = await stage2_collect_rankings_streaming(
                 content, stage1_results,
                 on_event=lambda t, d: None,
                 council_id=council_id,
+                panel=panel,
             )
 
             for result in (stage2_results if isinstance(stage2_results, list) else [stage2_results]):
@@ -223,16 +425,12 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 elif isinstance(result, dict):
                     yield f"data: {json.dumps({'type': 'stage2_model_complete', **{k: v for k, v in result.items() if k != 'parsed_ranking'}})}\n\n"
 
-            # Include analysis metadata (conflicts, minority opinions)
             if deliberation_meta:
                 yield f"data: {json.dumps({'type': 'analysis', **deliberation_meta})}\n\n"
 
             yield f"data: {json.dumps({'type': 'stage2_complete'})}\n\n"
 
-            # Stage 3: Chairman synthesis
-            yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-
-            # Flatten stage2 results for synthesis
+            # Record stage2 usage
             flat_stage2 = []
             if isinstance(stage2_results, list):
                 for item in stage2_results:
@@ -241,16 +439,31 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                     elif isinstance(item, dict):
                         flat_stage2.append(item)
 
+            for result in flat_stage2:
+                if isinstance(result, dict) and result.get("usage"):
+                    usage_tracker.record("stage2", result["model"], result["usage"], member_id=result.get("member_id", ""))
+            yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'stage2', 'usage': usage_tracker.get_stage_summary('stage2'), 'running_total': usage_tracker.get_total()})}\n\n"
+
+            # Stage 3: Chairman synthesis
+            yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
+
             stage3_result = await stage3_synthesize_streaming(
                 content, stage1_results, flat_stage2,
                 on_event=lambda t, d: None,
                 council_id=council_id,
                 analysis=deliberation_meta,
+                conversation_history=conversation_history,
             )
 
             yield f"data: {json.dumps({'type': 'stage3_complete', 'model': stage3_result.get('model', ''), 'response': stage3_result.get('response', '')})}\n\n"
 
-            # Save to storage
+            # Record stage3 usage
+            if stage3_result.get("usage"):
+                usage_tracker.record("stage3", stage3_result.get("model", ""), stage3_result["usage"])
+            yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'stage3', 'usage': usage_tracker.get_stage_summary('stage3'), 'running_total': usage_tracker.get_total()})}\n\n"
+
+            # Save to storage with panel metadata
+            final_usage = usage_tracker.get_breakdown()
             storage.add_assistant_message(
                 conversation_id,
                 stage1=stage1_results,
@@ -258,12 +471,29 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 stage3=stage3_result,
                 council_id=council_id,
                 analysis=deliberation_meta,
+                panel=panel,
+                usage=final_usage,
             )
 
-            # Generate title
-            await _generate_title(conversation_id, council_id, content, stage3_result.get("response", ""), event_stream_yield=None)
+            # Record deliberation results for leaderboard
+            try:
+                agg = deliberation_meta.get("aggregate_rankings", []) if deliberation_meta else []
+                if agg:
+                    model_scores = {}
+                    for item in agg:
+                        m = item.get("model", "")
+                        if m:
+                            model_scores[m] = 1.0 / item.get("average_rank", 999)
+                    winner = agg[0].get("model", "") if agg else ""
+                    record_deliberation_result(council_id, model_scores, winner, panel=panel)
+            except Exception:
+                pass  # non-critical
 
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            title_usage = await _generate_title(conversation_id, council_id, content, stage3_result.get("response", ""))
+            if title_usage:
+                usage_tracker.record("title", get_title_model(), title_usage)
+            final_usage = usage_tracker.get_breakdown()
+            yield f"data: {json.dumps({'type': 'done', 'usage': final_usage})}\n\n"
 
         except Exception as e:
             import traceback
@@ -273,8 +503,8 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-async def _generate_title(conversation_id: str, council_id: str, user_query: str, response: str, event_stream_yield=None):
-    """Generate a title for the conversation using the title model."""
+async def _generate_title(conversation_id: str, council_id: str, user_query: str, response: str, event_stream_yield=None) -> dict:
+    """Generate a title for the conversation using the title model. Returns usage dict."""
     try:
         from .openrouter import query_model
         title_model = get_title_model()
@@ -285,8 +515,10 @@ async def _generate_title(conversation_id: str, council_id: str, user_query: str
         if result and result.get("content"):
             title = result["content"].strip().strip('"').strip("'")[:80]
             storage.update_conversation_title(conversation_id, title, council_id)
+            return result.get("usage", {})
     except Exception as e:
         print(f"Title generation failed: {e}")
+    return {}
 
 
 # ========== Leaderboard Endpoints ==========
@@ -297,9 +529,20 @@ async def get_leaderboards():
     return get_all_leaderboards()
 
 
+@app.get("/api/leaderboard/advisors")
+async def get_advisor_leaderboards_all():
+    return get_all_advisor_leaderboards()
+
+
 @app.get("/api/leaderboard/{council_id}")
 async def get_leaderboard(council_id: str):
     return get_council_leaderboard(council_id)
+
+
+
+@app.get("/api/leaderboard/{council_id}/advisors")
+async def get_advisor_leaderboard_endpoint(council_id: str):
+    return get_advisor_leaderboard(council_id)
 
 
 # ========== Health Check ==========

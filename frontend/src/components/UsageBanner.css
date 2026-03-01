@@ -1,0 +1,114 @@
+.usage-banner {
+  margin: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.usage-banner.streaming {
+  border-color: rgba(100, 200, 100, 0.2);
+}
+
+.usage-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  color: #999;
+  transition: color 0.15s;
+}
+
+.usage-summary:hover {
+  color: #ccc;
+}
+
+.usage-cost {
+  color: #7cb87c;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.usage-tokens,
+.usage-calls {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #888;
+}
+
+.usage-separator {
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.usage-expand {
+  margin-left: auto;
+  color: #666;
+  font-size: 11px;
+}
+
+.usage-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4caf50;
+  animation: usage-pulse 1s ease-in-out infinite;
+}
+
+@keyframes usage-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.usage-breakdown {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 12px;
+}
+
+.usage-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.usage-table th {
+  text-align: left;
+  color: #666;
+  font-weight: 500;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.usage-table td {
+  padding: 3px 8px 3px 0;
+  color: #888;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+}
+
+.usage-table .stage-name {
+  font-family: inherit;
+  color: #aaa;
+}
+
+.usage-table .stage-cost {
+  color: #7cb87c;
+}
+
+.usage-total-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.usage-total-row td {
+  padding-top: 6px;
+  font-weight: 600;
+  color: #bbb;
+}
+
+.usage-total-row .stage-cost,
+.usage-total-row td:nth-child(2) {
+  color: #7cb87c;
+}

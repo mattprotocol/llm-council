@@ -310,23 +310,53 @@
   background: #f5f5f5;
 }
 
-.send-button {
-  padding: 14px 28px;
-  background: #4a90e2;
-  border: 1px solid #4a90e2;
+.send-button-group {
+  display: flex;
+  gap: 0;
+  align-self: flex-end;
   border-radius: 8px;
+  overflow: hidden;
+}
+
+.send-button {
+  padding: 14px 20px;
+  border: 1px solid #4a90e2;
   color: #fff;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
   white-space: nowrap;
-  align-self: flex-end;
 }
 
-.send-button:hover:not(:disabled) {
+.send-council {
+  background: #4a90e2;
+  border-radius: 8px 0 0 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.send-chairman {
+  background: #6b7280;
+  border-color: #6b7280;
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  padding: 14px 14px;
+}
+
+/* When chairman button is not present, round both corners */
+.send-button-group .send-council:only-child {
+  border-radius: 8px;
+  border-right: 1px solid #4a90e2;
+}
+
+.send-council:hover:not(:disabled) {
   background: #357abd;
   border-color: #357abd;
+}
+
+.send-chairman:hover:not(:disabled) {
+  background: #555b66;
+  border-color: #555b66;
 }
 
 .send-button:disabled {
