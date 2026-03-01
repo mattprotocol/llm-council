@@ -57,15 +57,46 @@ export const api = {
   },
 
   /**
-   * Send a message with token-level streaming.
+   * Route a question to get suggested advisor panel.
    */
-  async sendMessageStreamTokens(conversationId, content, onEvent, councilId = 'personal') {
+  async routeQuestion(councilId, question) {
+    const response = await fetch(`/api/councils/${councilId}/route`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    if (!response.ok) throw new Error('Failed to route question');
+    return response.json();
+  },
+
+  /**
+   * Get full advisor roster for a council.
+   */
+  async getAdvisors(councilId) {
+    const response = await fetch(`/api/councils/${councilId}/advisors`);
+    if (!response.ok) throw new Error('Failed to get advisors');
+    return response.json();
+  },
+
+  /**
+   * Send a message with token-level streaming.
+   * panelOverride: optional array of {advisor_id, model} to override routing.
+   */
+  async sendMessageStreamTokens(conversationId, content, onEvent, councilId = 'personal', panelOverride = null, forceDirect = false) {
+    const body = { content, council_id: councilId };
+    if (panelOverride) {
+      body.panel_override = panelOverride;
+    }
+    if (forceDirect) {
+      body.force_direct = true;
+    }
+
     const response = await fetch(
       `/api/conversations/${conversationId}/message/stream-tokens`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, council_id: councilId }),
+        body: JSON.stringify(body),
       }
     );
 
@@ -110,6 +141,77 @@ export const api = {
     const url = councilId ? `/api/leaderboard/${councilId}` : '/api/leaderboard';
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to get leaderboard');
+    return response.json();
+  },
+
+  /**
+   * Get full models/config.
+   */
+  async getConfig() {
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Failed to get config');
+    return response.json();
+  },
+
+  /**
+   * Update models/config.
+   */
+  async updateConfig(data) {
+    const response = await fetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || 'Failed to update config');
+    }
+    return response.json();
+  },
+
+  /**
+   * Create a new council.
+   */
+  async createCouncil(data) {
+    const response = await fetch('/api/councils', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || 'Failed to create council');
+    }
+    return response.json();
+  },
+
+  /**
+   * Update an existing council.
+   */
+  async updateCouncil(councilId, data) {
+    const response = await fetch(`/api/councils/${councilId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || 'Failed to update council');
+    }
+    return response.json();
+  },
+
+  /**
+   * Delete a council.
+   */
+  async deleteCouncil(councilId) {
+    const response = await fetch(`/api/councils/${councilId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || 'Failed to delete council');
+    }
     return response.json();
   },
 

@@ -9,6 +9,7 @@ export default function ChatInterface({
   conversation,
   conversationId,
   onSendMessage,
+  onSendDirect,
   onRedoMessage,
   onEditMessage,
   isLoading,
@@ -26,16 +27,16 @@ export default function ChatInterface({
     if (!conversation) return {};
     const messages = conversation.messages;
     if (!messages || !Array.isArray(messages) || messages.length === 0) return {};
-    
+
     const userMessages = messages
       .map((msg, idx) => ({ msg, idx }))
       .filter(({ msg }) => msg.role === 'user');
-    
+
     if (userMessages.length === 0) return {};
-    
+
     const first = userMessages[0];
     const last = userMessages[userMessages.length - 1];
-    
+
     return {
       firstUserMessage: first.msg,
       lastUserMessage: last.msg,
@@ -69,12 +70,12 @@ export default function ChatInterface({
       } else if (isAtBottom && userScrolledUp) {
         setUserScrolledUp(false);
       }
-      
+
       if (!firstUserMessageRef.current) {
         setShowPinnedHeader(false);
         return;
       }
-      
+
       const firstMsgRect = firstUserMessageRef.current.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
       setShowPinnedHeader(firstMsgRect.bottom < containerRect.top + 20);
@@ -84,12 +85,14 @@ export default function ChatInterface({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [firstUserMessage, userScrolledUp]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e, { direct = false } = {}) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
       if (editingIndex !== null) {
         onEditMessage(editingIndex, input);
         setEditingIndex(null);
+      } else if (direct && onSendDirect) {
+        onSendDirect(input);
       } else {
         onSendMessage(input);
       }
@@ -100,7 +103,8 @@ export default function ChatInterface({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      // Cmd/Ctrl+Enter → chairman only, Enter → council
+      handleSubmit(e, { direct: e.metaKey || e.ctrlKey });
     }
   };
 
@@ -180,7 +184,7 @@ export default function ChatInterface({
             </div>
           </div>
           <div className="pinned-content">
-            {(firstUserMessage.content?.length || 0) > 200 
+            {(firstUserMessage.content?.length || 0) > 200
               ? firstUserMessage.content.substring(0, 200) + '...'
               : firstUserMessage.content}
           </div>
@@ -195,8 +199,8 @@ export default function ChatInterface({
           </div>
         ) : (
           messages.map((msg, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className="message-group"
               ref={index === firstUserIndex ? firstUserMessageRef : null}
             >
@@ -248,7 +252,7 @@ export default function ChatInterface({
                     LLM Council
                     {(msg.classification || msg.stage3) && (
                       <span className={`classification-badge ${msg.classification?.type || (msg.stage3?.type === 'direct' ? 'chat' : 'deliberation')}`}>
-                        {msg.classification?.status === 'classifying' ? 'Classifying...' : 
+                        {msg.classification?.status === 'classifying' ? 'Classifying...' :
                          (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct' : 'Deliberation'}
                       </span>
                     )}
@@ -261,7 +265,7 @@ export default function ChatInterface({
                       <span>Analyzing message type...</span>
                     </div>
                   )}
-                  
+
                   {msg.classification?.status === 'complete' && msg.classification?.reasoning && (
                     <div className="classification-detail">
                       <span className="classification-reasoning">{msg.classification.reasoning}</span>
@@ -273,7 +277,7 @@ export default function ChatInterface({
                     <>
                       {(() => {
                         const isDeliberationComplete = msg.stage3 && !msg.streaming?.stage3?.isStreaming;
-                        
+
                         const deliberationContent = (
                           <>
                             {/* Stage 1 */}
@@ -284,8 +288,8 @@ export default function ChatInterface({
                               </div>
                             )}
                             {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
-                              <Stage1 
-                                responses={msg.stage1} 
+                              <Stage1
+                                responses={msg.stage1}
                                 streaming={msg.streaming?.stage1}
                               />
                             )}
@@ -300,7 +304,8 @@ export default function ChatInterface({
                             {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
                               <Stage2
                                 rankings={msg.stage2}
-                                labelToModel={msg.metadata?.label_to_model}
+                                labelToModel={msg.analysis?.label_to_model || msg.metadata?.label_to_model}
+                                labelToMember={msg.analysis?.label_to_member}
                                 aggregateRankings={msg.metadata?.aggregate_rankings}
                                 streaming={msg.streaming?.stage2}
                                 roundInfo={msg.roundInfo}
@@ -314,11 +319,11 @@ export default function ChatInterface({
                                 <span>Running Stage 3: Final synthesis...</span>
                               </div>
                             )}
-                            
+
                             {/* Stage 3 streaming */}
                             {!isDeliberationComplete && (msg.streaming?.stage3?.content) && (
-                              <Stage3 
-                                finalResponse={null} 
+                              <Stage3
+                                finalResponse={null}
                                 streaming={msg.streaming?.stage3}
                                 isDirect={false}
                               />
@@ -357,8 +362,8 @@ export default function ChatInterface({
                         </div>
                       )}
                       {(msg.stage3 || msg.streaming?.stage3?.content) && (
-                        <Stage3 
-                          finalResponse={msg.stage3} 
+                        <Stage3
+                          finalResponse={msg.stage3}
                           streaming={msg.streaming?.stage3}
                           isDirect={true}
                         />
@@ -372,14 +377,14 @@ export default function ChatInterface({
                       <div className="message-name-overlay ai-name">Council</div>
                       <div className="final-answer-header">
                         <span className="final-answer-title">
-                          {conversation?.title && !conversation.title.startsWith('Conversation ') 
-                            ? conversation.title 
+                          {conversation?.title && !conversation.title.startsWith('Conversation ')
+                            ? conversation.title
                             : 'Final Council Answer'}
                         </span>
                       </div>
                       <div className="final-answer-content markdown-content">
-                        <Stage3 
-                          finalResponse={msg.stage3} 
+                        <Stage3
+                          finalResponse={msg.stage3}
                           streaming={null}
                           isDirect={true}
                           hideTitleBar={true}
@@ -387,7 +392,7 @@ export default function ChatInterface({
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Completion indicator */}
                   {msg.stage3 && !msg.streaming?.stage3?.isStreaming && (
                     <div className="completion-message">
@@ -413,9 +418,9 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {(editingIndex !== null || 
-        messages.length === 0 || 
-        (messages.length > 0 && 
+      {(editingIndex !== null ||
+        messages.length === 0 ||
+        (messages.length > 0 &&
          !isLoading &&
          messages[messages.length - 1]?.role === 'assistant' &&
          messages[messages.length - 1]?.stage3)) && (
@@ -430,7 +435,7 @@ export default function ChatInterface({
             className="message-input"
             placeholder={editingIndex !== null
               ? "Edit your message... (Shift+Enter for new line, Enter to submit)"
-              : messages.length === 0 
+              : messages.length === 0
                 ? "Ask your question... (Shift+Enter for new line, Enter to send)"
                 : "Ask a follow-up question... (Shift+Enter for new line, Enter to send)"}
             value={input}
@@ -439,13 +444,27 @@ export default function ChatInterface({
             disabled={isLoading}
             rows={3}
           />
-          <button
-            type="submit"
-            className="send-button"
-            disabled={!input.trim() || isLoading}
-          >
-            {editingIndex !== null ? 'Update' : 'Send'}
-          </button>
+          <div className="send-button-group">
+            <button
+              type="submit"
+              className="send-button send-council"
+              disabled={!input.trim() || isLoading}
+              title="Send to full council for deliberation (Enter)"
+            >
+              {editingIndex !== null ? 'Update' : 'Council'}
+            </button>
+            {editingIndex === null && onSendDirect && (
+              <button
+                type="button"
+                className="send-button send-chairman"
+                disabled={!input.trim() || isLoading}
+                onClick={(e) => handleSubmit(e, { direct: true })}
+                title="Send to chairman only — fast follow-up (Cmd+Enter)"
+              >
+                Chair
+              </button>
+            )}
+          </div>
         </form>
       )}
     </div>
