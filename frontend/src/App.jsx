@@ -251,7 +251,15 @@ function App() {
                 };
                 break;
 
+              case "classification_complete":
+                lastMsg.classification = { type: data.type, reasoning: data.reasoning };
+                if (data.type === "direct" || data.type === "followup" || data.type === "chat" || data.type === "factual") {
+                  lastMsg.responseType = "direct";
+                }
+                break;
+
               case "direct_start":
+                lastMsg.responseType = "direct";
                 break;
 
               case "done":
