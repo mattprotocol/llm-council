@@ -159,6 +159,17 @@ def get_deliberation_rounds() -> int:
     return get_deliberation_config().get("rounds", 2)
 
 
+def get_stage_temperatures() -> Dict[str, float]:
+    """Get per-stage temperature settings."""
+    config = get_deliberation_config()
+    temps = config.get("temperatures", {})
+    return {
+        "stage1": temps.get("stage1", 0.5),
+        "stage2": temps.get("stage2", 0.3),
+        "stage3": temps.get("stage3", 0.4),
+    }
+
+
 def get_response_config() -> Dict[str, Any]:
     config = load_config()
     return config.get("response_config", {"response_style": "standard"})

@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Tuple, Optional, Callable
 from ..openrouter import query_model_streaming
 from ..config_loader import (
     get_deliberation_config, get_rubric, get_council_members, CouncilMember,
+    get_stage_temperatures,
 )
 from ..analysis import (
     detect_ranking_conflicts, detect_minority_opinions,
@@ -22,10 +23,12 @@ async def stage2_collect_rankings_streaming(
     on_event: Callable[[str, Dict[str, Any]], None],
     council_id: str = "personal",
     panel: Optional[List[Dict[str, str]]] = None,
+    temperature: Optional[float] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
     """Stage 2: Multi-round deliberation with rubric-based scoring."""
     deliberation_config = get_deliberation_config()
     max_rounds = deliberation_config.get("max_rounds", 3)
+    temp = temperature if temperature is not None else get_stage_temperatures()["stage2"]
     rubric = get_rubric(council_id)
     members = get_council_members(council_id, panel=panel)
 
@@ -52,6 +55,9 @@ async def stage2_collect_rankings_streaming(
 
     all_rounds_rankings = []
     token_tracker = TokenTracker()
+
+    # Emit init event with total count
+    on_event("stage2_init", {"total": len(members)})
 
     for round_num in range(1, max_rounds + 1):
         on_event("round_start", {"round": round_num, "max_rounds": max_rounds})
@@ -92,7 +98,7 @@ Then provide your FINAL RANKING:
 
             content = ""
             ranking_usage = {}
-            async for chunk in query_model_streaming(member.model, messages):
+            async for chunk in query_model_streaming(member.model, messages, temperature=temp):
                 if chunk["type"] == "token":
                     content = chunk["content"]
                     tps = token_tracker.record_token(tracker_key, chunk["delta"])

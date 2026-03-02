@@ -19,6 +19,10 @@ title_model: google/gemini-2.5-flash
 deliberation:
   rounds: 2
   max_rounds: 5
+  temperatures:
+    stage1: 0.5   # Individual responses — moderate creativity
+    stage2: 0.3   # Peer rankings — more deterministic evaluation
+    stage3: 0.4   # Chairman synthesis — balanced refinement
 
 response_config:
   response_style: standard

@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional, Callable
 
 from ..openrouter import query_model_streaming
 from ..config import CHAIRMAN_MODEL
-from ..config_loader import get_response_config
+from ..config_loader import get_response_config, get_stage_temperatures
 from ..analysis import format_analysis_summary
 from .utils import TokenTracker, strip_fake_images
 
@@ -17,6 +17,7 @@ async def stage3_synthesize_streaming(
     council_id: str = "personal",
     analysis: Optional[Dict[str, Any]] = None,
     conversation_history: Optional[List[Dict[str, Any]]] = None,
+    temperature: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Stage 3: Chairman synthesizes from top-voted response."""
     stage1_text = "\n\n".join([
@@ -97,7 +98,8 @@ Provide the refined, synthesized final answer:"""
     token_tracker = TokenTracker()
     stage3_usage = {}
 
-    async for chunk in query_model_streaming(CHAIRMAN_MODEL, messages):
+    temp = temperature if temperature is not None else get_stage_temperatures()["stage3"]
+    async for chunk in query_model_streaming(CHAIRMAN_MODEL, messages, temperature=temp):
         if chunk["type"] == "token":
             content = chunk["content"]
             tps = token_tracker.record_token(CHAIRMAN_MODEL, chunk["delta"])

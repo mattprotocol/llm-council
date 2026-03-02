@@ -15,24 +15,24 @@ function deAnonymizeText(text, labelToModel) {
   return result;
 }
 
-export default function Stage2({ rankings, labelToModel, aggregateRankings, streaming, roundInfo }) {
+export default function Stage2({ rankings, labelToModel, aggregateRankings, streaming, roundInfo, progress }) {
   const [activeTab, setActiveTab] = useState(0);
   const thinkingRef = useRef(null);
   const userScrolledRef = useRef(false);
 
   // Get models from either completed rankings or streaming state
-  const models = rankings?.length > 0 
+  const models = rankings?.length > 0
     ? rankings.map(r => r.model)
     : streaming ? Object.keys(streaming) : [];
 
-  if (models.length === 0) {
+  if (models.length === 0 && !progress) {
     return null;
   }
 
   const currentModel = models[activeTab];
   const completedRanking = rankings?.find(r => r.model === currentModel);
   const streamingData = streaming?.[currentModel];
-  
+
   // Use completed ranking if available, otherwise show streaming content
   const displayContent = completedRanking?.ranking || streamingData?.content || '';
   const thinkingContent = streamingData?.thinking || '';
@@ -75,7 +75,14 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
   return (
     <div className="stage stage2">
       <div className="stage-header">
-        <h3 className="stage-title">Stage 2: Peer Rankings</h3>
+        <h3 className="stage-title">
+          Stage 2: Peer Rankings
+          {progress && (
+            <span className="stage-progress">
+              ({progress.completed}/{progress.total})
+            </span>
+          )}
+        </h3>
         {roundInfo && roundInfo.maxRounds > 1 && (
           <span className="round-indicator">
             Round {roundInfo.current} / {roundInfo.maxRounds}
@@ -84,77 +91,94 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings, stre
         )}
       </div>
 
+      {/* Progress bar */}
+      {progress && progress.total > 0 && (
+        <div className="progress-bar-container">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+          />
+          <span className="progress-bar-text">
+            Collecting rankings ({progress.completed}/{progress.total})
+          </span>
+        </div>
+      )}
+
       <h4>Raw Evaluations</h4>
       <p className="stage-description">
         Each model evaluated all responses (anonymized as Response A, B, C, etc.) and provided rankings.
         Below, model names are shown in <strong>bold</strong> for readability, but the original evaluation used anonymous labels.
       </p>
 
-      <div className="tabs">
-        {models.map((model, index) => {
-          const modelStreaming = streaming?.[model];
-          const modelComplete = rankings?.find(r => r.model === model);
-          const modelTiming = modelStreaming?.elapsedSeconds !== undefined 
-            ? `${modelStreaming?.thinkingSeconds ?? modelStreaming?.elapsedSeconds}s/${modelStreaming?.elapsedSeconds}s`
-            : null;
-          
-          return (
-            <button
-              key={index}
-              className={`tab ${activeTab === index ? 'active' : ''} ${modelStreaming?.isStreaming && !modelComplete ? 'streaming' : ''}`}
-              onClick={() => setActiveTab(index)}
-            >
-              {model ? (model.split('/')[1] || model) : 'Unknown'}
-              {modelStreaming?.isStreaming && !modelComplete && modelTiming && <span className="timing-indicator">{modelTiming}</span>}
-              {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">●</span>}
-            </button>
-          );
-        })}
-      </div>
+      {models.length > 0 && (
+        <>
+          <div className="tabs">
+            {models.map((model, index) => {
+              const modelStreaming = streaming?.[model];
+              const modelComplete = rankings?.find(r => r.model === model);
+              const modelTiming = modelStreaming?.elapsedSeconds !== undefined
+                ? `${modelStreaming?.thinkingSeconds ?? modelStreaming?.elapsedSeconds}s/${modelStreaming?.elapsedSeconds}s`
+                : null;
 
-      <div className="tab-content">
-        <div className="ranking-model">
-          {currentModel}
-          {tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
-          {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
-          {isStreaming && <span className="streaming-badge">Streaming...</span>}
-        </div>
-        
-        {thinkingContent && (
-          <details className="thinking-section" open={isStreaming}>
-            <summary>Thinking</summary>
-            <div 
-              className="thinking-content"
-              ref={thinkingRef}
-              onScroll={handleThinkingScroll}
-            >
-              {thinkingContent}
-            </div>
-          </details>
-        )}
-        
-        <div className="ranking-content markdown-content">
-          <MarkdownRenderer>
-            {deAnonymizeText(displayContent, labelToModel)}
-          </MarkdownRenderer>
-          {isStreaming && <span className="cursor-blink">▌</span>}
-        </div>
-
-        {parsedRanking && parsedRanking.length > 0 && (
-          <div className="parsed-ranking">
-            <strong>Extracted Ranking:</strong>
-            <ol>
-              {parsedRanking.map((label, i) => (
-                <li key={i}>
-                  {labelToModel && labelToModel[label]
-                    ? (labelToModel[label].split('/')[1] || labelToModel[label])
-                    : label}
-                </li>
-              ))}
-            </ol>
+              return (
+                <button
+                  key={index}
+                  className={`tab ${activeTab === index ? 'active' : ''} ${modelStreaming?.isStreaming && !modelComplete ? 'streaming' : ''}`}
+                  onClick={() => setActiveTab(index)}
+                >
+                  {model ? (model.split('/')[1] || model) : 'Unknown'}
+                  {modelStreaming?.isStreaming && !modelComplete && modelTiming && <span className="timing-indicator">{modelTiming}</span>}
+                  {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">{'\u25CF'}</span>}
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          <div className="tab-content">
+            <div className="ranking-model">
+              {currentModel}
+              {tokensPerSecond !== undefined && <span className="tps-badge">{tokensPerSecond.toFixed(1)} tok/s</span>}
+              {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
+              {isStreaming && <span className="streaming-badge">Streaming...</span>}
+            </div>
+
+            {thinkingContent && (
+              <details className="thinking-section" open={isStreaming}>
+                <summary>Thinking</summary>
+                <div
+                  className="thinking-content"
+                  ref={thinkingRef}
+                  onScroll={handleThinkingScroll}
+                >
+                  {thinkingContent}
+                </div>
+              </details>
+            )}
+
+            <div className="ranking-content markdown-content">
+              <MarkdownRenderer>
+                {deAnonymizeText(displayContent, labelToModel)}
+              </MarkdownRenderer>
+              {isStreaming && <span className="cursor-blink">{'\u258C'}</span>}
+            </div>
+
+            {parsedRanking && parsedRanking.length > 0 && (
+              <div className="parsed-ranking">
+                <strong>Extracted Ranking:</strong>
+                <ol>
+                  {parsedRanking.map((label, i) => (
+                    <li key={i}>
+                      {labelToModel && labelToModel[label]
+                        ? (labelToModel[label].split('/')[1] || labelToModel[label])
+                        : label}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {aggregateRankings && aggregateRankings.length > 0 && (
         <div className="aggregate-rankings">

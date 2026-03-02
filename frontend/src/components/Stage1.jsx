@@ -1,25 +1,26 @@
 import { useState, useRef, useEffect } from 'react';
 import MarkdownRenderer from './MarkdownRenderer';
+import ThinkBlockRenderer from './ThinkBlockRenderer';
 import './Stage1.css';
 
-export default function Stage1({ responses, streaming }) {
+export default function Stage1({ responses, streaming, progress }) {
   const [activeTab, setActiveTab] = useState(0);
   const thinkingRef = useRef(null);
   const userScrolledRef = useRef(false);
 
   // Get models from either completed responses or streaming state
-  const models = responses?.length > 0 
+  const models = responses?.length > 0
     ? responses.map(r => r.model)
     : streaming ? Object.keys(streaming) : [];
 
-  if (models.length === 0) {
+  if (models.length === 0 && !progress) {
     return null;
   }
 
   const currentModel = models[activeTab];
   const completedResponse = responses?.find(r => r.model === currentModel);
   const streamingData = streaming?.[currentModel];
-  
+
   // Use completed response if available, otherwise show streaming content
   const displayContent = completedResponse?.response || streamingData?.content || '';
   const thinkingContent = streamingData?.thinking || '';
@@ -60,7 +61,27 @@ export default function Stage1({ responses, streaming }) {
 
   return (
     <div className="stage stage1">
-      <h3 className="stage-title">Stage 1: Individual Responses</h3>
+      <h3 className="stage-title">
+        Stage 1: Individual Responses
+        {progress && (
+          <span className="stage-progress">
+            ({progress.completed}/{progress.total})
+          </span>
+        )}
+      </h3>
+
+      {/* Progress bar */}
+      {progress && progress.total > 0 && (
+        <div className="progress-bar-container">
+          <div
+            className="progress-bar-fill"
+            style={{ width: `${(progress.completed / progress.total) * 100}%` }}
+          />
+          <span className="progress-bar-text">
+            Collecting responses ({progress.completed}/{progress.total})
+          </span>
+        </div>
+      )}
 
       {models.length > 0 && (
         <>
@@ -70,10 +91,10 @@ export default function Stage1({ responses, streaming }) {
               const modelComplete = responses?.find(r => r.model === model);
               const hasContent = modelComplete || modelStreaming?.content;
               const modelTps = modelStreaming?.tokensPerSecond;
-              const modelTiming = modelStreaming?.elapsedSeconds !== undefined 
+              const modelTiming = modelStreaming?.elapsedSeconds !== undefined
                 ? `${modelStreaming?.thinkingSeconds ?? modelStreaming?.elapsedSeconds}s/${modelStreaming?.elapsedSeconds}s`
                 : null;
-              
+
               return (
                 <button
                   key={index}
@@ -82,7 +103,7 @@ export default function Stage1({ responses, streaming }) {
                 >
                   {model.split('/')[1] || model}
                   {modelStreaming?.isStreaming && !modelComplete && modelTiming && <span className="timing-indicator">{modelTiming}</span>}
-                  {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">●</span>}
+                  {modelStreaming?.isStreaming && !modelComplete && <span className="streaming-indicator">{'\u25CF'}</span>}
                 </button>
               );
             })}
@@ -95,11 +116,11 @@ export default function Stage1({ responses, streaming }) {
               {formatTiming(thinkingSeconds, elapsedSeconds) && <span className="timing-badge">{formatTiming(thinkingSeconds, elapsedSeconds)}</span>}
               {isStreaming && <span className="streaming-badge">Streaming...</span>}
             </div>
-            
+
             {thinkingContent && (
               <details className="thinking-section" open={isStreaming}>
                 <summary>Thinking</summary>
-                <div 
+                <div
                   className="thinking-content"
                   ref={thinkingRef}
                   onScroll={handleThinkingScroll}
@@ -108,10 +129,13 @@ export default function Stage1({ responses, streaming }) {
                 </div>
               </details>
             )}
-            
+
             <div className="response-text markdown-content">
-              <MarkdownRenderer>{displayContent}</MarkdownRenderer>
-              {isStreaming && <span className="cursor-blink">▌</span>}
+              <ThinkBlockRenderer
+                content={displayContent}
+                renderContent={(text) => <MarkdownRenderer>{text}</MarkdownRenderer>}
+              />
+              {isStreaming && <span className="cursor-blink">{'\u258C'}</span>}
             </div>
           </div>
         </>

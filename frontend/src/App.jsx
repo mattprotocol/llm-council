@@ -194,6 +194,7 @@ function App() {
       stage3: {},
       analysis: null,
       panel: null,
+      progress: { stage1: null, stage2: null },
     };
     setCurrentConversation((prev) => ({
       ...prev,
@@ -216,6 +217,21 @@ function App() {
                 lastMsg.panel = data.panel;
                 break;
 
+              // Progressive Stage 1 events
+              case "stage1_init":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage1: { completed: 0, total: data.total },
+                };
+                break;
+
+              case "stage1_progress":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage1: { completed: data.completed, total: data.total },
+                };
+                break;
+
               case "stage1_model_complete":
                 lastMsg.stage1 = [
                   ...(lastMsg.stage1 || []),
@@ -228,6 +244,28 @@ function App() {
                 ];
                 break;
 
+              case "stage1_complete":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage1: null, // Clear progress on complete
+                };
+                break;
+
+              // Progressive Stage 2 events
+              case "stage2_init":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage2: { completed: 0, total: data.total },
+                };
+                break;
+
+              case "stage2_progress":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage2: { completed: data.completed, total: data.total },
+                };
+                break;
+
               case "stage2_model_complete":
                 lastMsg.stage2 = [
                   ...(lastMsg.stage2 || []),
@@ -238,6 +276,13 @@ function App() {
                     ranking: data.ranking,
                   },
                 ];
+                break;
+
+              case "stage2_complete":
+                lastMsg.progress = {
+                  ...lastMsg.progress,
+                  stage2: null,
+                };
                 break;
 
               case "analysis":

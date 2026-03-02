@@ -1,0 +1,68 @@
+.think-block-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.think-block {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  margin: 0.5rem 0;
+  overflow: hidden;
+}
+
+.think-block-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  user-select: none;
+  list-style: none;
+}
+
+.think-block-summary::-webkit-details-marker {
+  display: none;
+}
+
+.think-block-summary:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.think-block-icon {
+  font-size: 0.7rem;
+  width: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.think-block-label {
+  font-weight: 500;
+  font-style: italic;
+}
+
+.think-block-lines {
+  margin-left: auto;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.think-block-content {
+  padding: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: italic;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.think-block-text {
+  /* Regular content segments need no special styling */
+}

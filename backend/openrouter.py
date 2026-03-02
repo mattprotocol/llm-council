@@ -138,6 +138,7 @@ async def query_model_streaming(
     connection_timeout: Optional[float] = None,
     on_token: Optional[Callable[[str, str, Optional[str]], None]] = None,
     max_tokens: Optional[int] = None,
+    temperature: Optional[float] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Query a model with streaming enabled, yielding tokens as they arrive."""
     if timeout is None:
@@ -147,6 +148,8 @@ async def query_model_streaming(
 
     headers = _get_headers()
     payload = {"model": model, "messages": messages, "stream": True, "max_tokens": max_tokens or 4096}
+    if temperature is not None:
+        payload["temperature"] = temperature
 
     content_buffer = ""
     reasoning_buffer = ""

@@ -288,10 +288,11 @@ export default function ChatInterface({
                                 <span>Running Stage 1: Collecting individual responses...</span>
                               </div>
                             )}
-                            {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0) && (
+                            {(msg.stage1 || Object.keys(msg.streaming?.stage1 || {}).length > 0 || msg.progress?.stage1) && (
                               <Stage1
                                 responses={msg.stage1}
                                 streaming={msg.streaming?.stage1}
+                                progress={msg.progress?.stage1}
                               />
                             )}
 
@@ -302,7 +303,7 @@ export default function ChatInterface({
                                 <span>Running Stage 2: Peer rankings...</span>
                               </div>
                             )}
-                            {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0) && (
+                            {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0 || msg.progress?.stage2) && (
                               <Stage2
                                 rankings={msg.stage2}
                                 labelToModel={msg.analysis?.label_to_model || msg.metadata?.label_to_model}
@@ -310,6 +311,7 @@ export default function ChatInterface({
                                 aggregateRankings={msg.metadata?.aggregate_rankings}
                                 streaming={msg.streaming?.stage2}
                                 roundInfo={msg.roundInfo}
+                                progress={msg.progress?.stage2}
                               />
                             )}
 

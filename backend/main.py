@@ -36,6 +36,7 @@ from .config_loader import (
     get_advisors,
     get_advisor_roster_summary,
     get_routing_config,
+    get_stage_temperatures,
 )
 from .config import reload_runtime_config
 from .leaderboard import get_council_leaderboard, get_all_leaderboards, get_advisor_leaderboard, get_all_advisor_leaderboards, record_deliberation_result, record_advisor_selection
@@ -216,7 +217,7 @@ async def get_council_detail(council_id: str):
     return council
 
 
-# ========== Advisor & Routing Endpoints (NEW) ==========
+# ========== Advisor & Routing Endpoints ==========
 
 
 @app.get("/api/councils/{council_id}/advisors")
@@ -291,6 +292,16 @@ async def delete_conversation(conversation_id: str, council_id: str = "personal"
 # ========== Streaming Message Endpoint ==========
 
 
+async def _drain_queue(queue: asyncio.Queue):
+    """Drain all pending events from a queue, yielding SSE lines."""
+    while not queue.empty():
+        try:
+            event_data = queue.get_nowait()
+            yield f"data: {event_data}\n\n"
+        except asyncio.QueueEmpty:
+            break
+
+
 @app.post("/api/conversations/{conversation_id}/message/stream-tokens")
 async def send_message_stream_tokens(conversation_id: str, request: MessageRequest):
     council_id = request.council_id
@@ -308,6 +319,11 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
         panel = panel_override  # May be None
         conversation_history = conversation.get("messages", [])
         usage_tracker = UsageAggregator()
+        event_queue = asyncio.Queue()
+
+        def queue_event(event_type, data):
+            """Put an event onto the queue for SSE emission."""
+            event_queue.put_nowait(json.dumps({"type": event_type, **data}))
 
         try:
             # Force direct: skip classification entirely, go straight to chairman
@@ -382,19 +398,51 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 except Exception:
                     pass  # non-critical
 
-            # Stage 1: Collect responses from panel (with conversation history)
+            # ===== Stage 1: Collect responses with progressive events =====
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
 
-            stage1_results = await stage1_collect_responses_streaming(
-                content,
-                on_event=lambda t, d: None,
-                council_id=council_id,
-                panel=panel,
-                conversation_history=conversation_history,
+            stage1_completed = [0]
+
+            def stage1_on_event(event_type, data):
+                if event_type == "stage1_init":
+                    queue_event("stage1_init", data)
+                elif event_type == "stage1_model_complete":
+                    stage1_completed[0] += 1
+                    queue_event("stage1_progress", {
+                        "completed": stage1_completed[0],
+                        "total": data.get("total", len(panel) if panel else 0),
+                        "model": data.get("model", ""),
+                        "role": data.get("role", ""),
+                        "member_id": data.get("member_id", ""),
+                    })
+                    queue_event("stage1_model_complete", data)
+                elif event_type in ("stage1_token", "stage1_thinking"):
+                    queue_event(event_type, data)
+
+            # Run stage1 as a task so we can drain events in parallel
+            stage1_task = asyncio.create_task(
+                stage1_collect_responses_streaming(
+                    content,
+                    on_event=stage1_on_event,
+                    council_id=council_id,
+                    panel=panel,
+                    conversation_history=conversation_history,
+                )
             )
 
-            for result in stage1_results:
-                yield f"data: {json.dumps({'type': 'stage1_model_complete', 'model': result['model'], 'role': result.get('role', ''), 'member_id': result.get('member_id', ''), 'response': result['response']})}\n\n"
+            # Drain events while stage1 runs
+            while not stage1_task.done():
+                try:
+                    event_data = await asyncio.wait_for(event_queue.get(), timeout=0.05)
+                    yield f"data: {event_data}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            # Drain remaining events
+            async for line in _drain_queue(event_queue):
+                yield line
+
+            stage1_results = stage1_task.result()
 
             yield f"data: {json.dumps({'type': 'stage1_complete', 'results': [{'model': r['model'], 'role': r.get('role', ''), 'member_id': r.get('member_id', '')} for r in stage1_results]})}\n\n"
 
@@ -408,22 +456,47 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 yield f"data: {json.dumps({'type': 'error', 'message': 'No advisors responded in Stage 1'})}\n\n"
                 return
 
-            # Stage 2: Rankings
+            # ===== Stage 2: Rankings with progressive events =====
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
 
-            stage2_results, label_to_model, deliberation_meta = await stage2_collect_rankings_streaming(
-                content, stage1_results,
-                on_event=lambda t, d: None,
-                council_id=council_id,
-                panel=panel,
+            stage2_completed = [0]
+
+            def stage2_on_event(event_type, data):
+                if event_type == "stage2_init":
+                    queue_event("stage2_init", data)
+                elif event_type == "stage2_model_complete":
+                    stage2_completed[0] += 1
+                    queue_event("stage2_progress", {
+                        "completed": stage2_completed[0],
+                        "total": data.get("total", len(panel) if panel else 0),
+                        "model": data.get("model", ""),
+                        "role": data.get("role", ""),
+                        "member_id": data.get("member_id", ""),
+                    })
+                    queue_event("stage2_model_complete", data)
+                elif event_type in ("stage2_token", "stage2_thinking", "round_start", "round_complete"):
+                    queue_event(event_type, data)
+
+            stage2_task = asyncio.create_task(
+                stage2_collect_rankings_streaming(
+                    content, stage1_results,
+                    on_event=stage2_on_event,
+                    council_id=council_id,
+                    panel=panel,
+                )
             )
 
-            for result in (stage2_results if isinstance(stage2_results, list) else [stage2_results]):
-                if isinstance(result, list):
-                    for r in result:
-                        yield f"data: {json.dumps({'type': 'stage2_model_complete', **{k: v for k, v in r.items() if k != 'parsed_ranking'}})}\n\n"
-                elif isinstance(result, dict):
-                    yield f"data: {json.dumps({'type': 'stage2_model_complete', **{k: v for k, v in result.items() if k != 'parsed_ranking'}})}\n\n"
+            while not stage2_task.done():
+                try:
+                    event_data = await asyncio.wait_for(event_queue.get(), timeout=0.05)
+                    yield f"data: {event_data}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            async for line in _drain_queue(event_queue):
+                yield line
+
+            stage2_results, label_to_model, deliberation_meta = stage2_task.result()
 
             if deliberation_meta:
                 yield f"data: {json.dumps({'type': 'analysis', **deliberation_meta})}\n\n"
@@ -444,17 +517,35 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                     usage_tracker.record("stage2", result["model"], result["usage"], member_id=result.get("member_id", ""))
             yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'stage2', 'usage': usage_tracker.get_stage_summary('stage2'), 'running_total': usage_tracker.get_total()})}\n\n"
 
-            # Stage 3: Chairman synthesis
+            # ===== Stage 3: Chairman synthesis with streaming =====
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
 
-            stage3_result = await stage3_synthesize_streaming(
-                content, stage1_results, flat_stage2,
-                on_event=lambda t, d: None,
-                council_id=council_id,
-                analysis=deliberation_meta,
-                conversation_history=conversation_history,
+            def stage3_on_event(event_type, data):
+                queue_event(event_type, data)
+
+            stage3_task = asyncio.create_task(
+                stage3_synthesize_streaming(
+                    content, stage1_results, flat_stage2,
+                    on_event=stage3_on_event,
+                    council_id=council_id,
+                    analysis=deliberation_meta,
+                    conversation_history=conversation_history,
+                )
             )
 
+            while not stage3_task.done():
+                try:
+                    event_data = await asyncio.wait_for(event_queue.get(), timeout=0.05)
+                    yield f"data: {event_data}\n\n"
+                except asyncio.TimeoutError:
+                    continue
+
+            async for line in _drain_queue(event_queue):
+                yield line
+
+            stage3_result = stage3_task.result()
+
+            # Emit stage3_complete if not already emitted by the on_event callback
             yield f"data: {json.dumps({'type': 'stage3_complete', 'model': stage3_result.get('model', ''), 'response': stage3_result.get('response', '')})}\n\n"
 
             # Record stage3 usage
@@ -519,6 +610,14 @@ async def _generate_title(conversation_id: str, council_id: str, user_query: str
     except Exception as e:
         print(f"Title generation failed: {e}")
     return {}
+
+
+# ========== Temperature Config Endpoint ==========
+
+
+@app.get("/api/config/temperatures")
+async def get_temperatures():
+    return get_stage_temperatures()
 
 
 # ========== Leaderboard Endpoints ==========
