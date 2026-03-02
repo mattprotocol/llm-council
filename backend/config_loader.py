@@ -2,6 +2,7 @@
 
 import os
 import yaml
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -57,6 +58,41 @@ def reload_config():
     _config_cache = None
     _councils_cache = None
     return load_config()
+
+
+def save_models_config(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Save global model configuration to config/models.yaml."""
+    config_path = get_project_root() / "config" / "models.yaml"
+    current = load_config().copy()
+    current.update(data)
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump(current, f, default_flow_style=False, allow_unicode=True)
+    reload_config()
+    return current
+
+
+def save_council_config(council_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Save a council configuration to config/councils/{council_id}.yaml."""
+    councils_dir = get_project_root() / "config" / "councils"
+    councils_dir.mkdir(parents=True, exist_ok=True)
+    config_path = councils_dir / f"{council_id}.yaml"
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+    global _councils_cache
+    _councils_cache = None
+    return data
+
+
+def delete_council_config(council_id: str) -> None:
+    """Delete a council configuration file."""
+    config_path = get_project_root() / "config" / "councils" / f"{council_id}.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Council config not found: {council_id}")
+    if council_id in ("personal",):
+        raise ValueError(f"Cannot delete built-in council: {council_id}")
+    config_path.unlink()
+    global _councils_cache
+    _councils_cache = None
 
 
 def load_councils() -> Dict[str, Dict[str, Any]]:
@@ -173,4 +209,113 @@ def get_councils_summary() -> List[Dict[str, Any]]:
             "rubric": c.get("rubric", []),
         }
         for cid, c in councils.items()
+    ]
+
+
+# ============== Council Member & Advisor Functions ==============
+
+@dataclass
+class CouncilMember:
+    """A council member with model, role, system prompt, and unique ID."""
+    model: str
+    role: str
+    system_prompt: str
+    member_id: str
+
+
+def _persona_to_advisor(persona: Dict[str, Any], index: int) -> Dict[str, Any]:
+    """Convert a persona config entry to an advisor dict."""
+    role = persona.get("role", f"Member {index + 1}")
+    model = persona.get("model", "")
+    member_id = role.lower().replace(" ", "-").replace("'", "")
+    return {
+        "id": member_id,
+        "name": role,
+        "role": role,
+        "model": model,
+        "prompt": persona.get("prompt", ""),
+        "tags": persona.get("tags", []),
+    }
+
+
+def get_advisors(council_id: str) -> List[Dict[str, Any]]:
+    """Get full advisor list for a council (derived from personas)."""
+    council = get_council(council_id)
+    if not council:
+        return []
+    return [
+        _persona_to_advisor(p, i)
+        for i, p in enumerate(council.get("personas", []))
+    ]
+
+
+def get_advisor_roster_summary(council_id: str) -> List[Dict[str, Any]]:
+    """Get a summary of advisors for routing (id, name, role, tags)."""
+    advisors = get_advisors(council_id)
+    return [
+        {
+            "id": a["id"],
+            "name": a["name"],
+            "role": a["role"],
+            "tags": a.get("tags", []),
+        }
+        for a in advisors
+    ]
+
+
+def get_routing_config(council_id: str) -> Dict[str, Any]:
+    """Get routing configuration for a council."""
+    council = get_council(council_id)
+    if not council:
+        return {"min_advisors": 3, "max_advisors": 5, "default_advisors": 5}
+    routing = council.get("routing", {})
+    num_personas = len(council.get("personas", []))
+    return {
+        "min_advisors": routing.get("min_advisors", min(3, num_personas)),
+        "max_advisors": routing.get("max_advisors", num_personas),
+        "default_advisors": routing.get("default_advisors", num_personas),
+    }
+
+
+def get_council_members(
+    council_id: str,
+    panel: Optional[List[Dict[str, str]]] = None,
+) -> List[CouncilMember]:
+    """Build CouncilMember list from council config.
+
+    If panel is provided (from router), use those advisor_ids with their
+    assigned models. Otherwise, use all personas from the council config.
+    """
+    council = get_council(council_id)
+    if not council:
+        return []
+
+    personas = council.get("personas", [])
+    advisors = get_advisors(council_id)
+    advisor_map = {a["id"]: a for a in advisors}
+
+    if panel:
+        members = []
+        for entry in panel:
+            advisor_id = entry.get("advisor_id", "")
+            model = entry.get("model", "")
+            advisor = advisor_map.get(advisor_id)
+            if advisor:
+                members.append(CouncilMember(
+                    model=model or advisor["model"],
+                    role=advisor["role"],
+                    system_prompt=advisor.get("prompt", ""),
+                    member_id=advisor["id"],
+                ))
+        return members
+
+    # No panel — use all personas
+    return [
+        CouncilMember(
+            model=p.get("model", ""),
+            role=p.get("role", f"Member {i + 1}"),
+            system_prompt=p.get("prompt", ""),
+            member_id=p.get("role", f"member-{i}").lower().replace(" ", "-").replace("'", ""),
+        )
+        for i, p in enumerate(personas)
     ]
