@@ -4,6 +4,8 @@ import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import UsageBanner from './UsageBanner';
+import ExecutionModeToggle from './ExecutionModeToggle';
+import CouncilGrid from './CouncilGrid';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -14,6 +16,8 @@ export default function ChatInterface({
   onRedoMessage,
   onEditMessage,
   isLoading,
+  executionMode,
+  onExecutionModeChange,
 }) {
   const [input, setInput] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
@@ -104,7 +108,6 @@ export default function ChatInterface({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Cmd/Ctrl+Enter → chairman only, Enter → council
       handleSubmit(e, { direct: e.metaKey || e.ctrlKey });
     }
   };
@@ -254,7 +257,9 @@ export default function ChatInterface({
                     {(msg.classification || msg.stage3) && (
                       <span className={`classification-badge ${msg.classification?.type || (msg.stage3?.type === 'direct' ? 'chat' : 'deliberation')}`}>
                         {msg.classification?.status === 'classifying' ? 'Classifying...' :
-                         (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct' : 'Deliberation'}
+                         (msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct' :
+                         msg.executionMode === 'chat' ? 'Chat' :
+                         msg.executionMode === 'ranked' ? 'Ranked' : 'Deliberation'}
                       </span>
                     )}
                   </div>
@@ -271,6 +276,18 @@ export default function ChatInterface({
                     <div className="classification-detail">
                       <span className="classification-reasoning">{msg.classification.reasoning}</span>
                     </div>
+                  )}
+
+                  {/* CouncilGrid — shows during active deliberation (non-direct responses) */}
+                  {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.panel && !msg.stage3?.response && (
+                    <CouncilGrid
+                      stage1={msg.stage1}
+                      stage2={msg.stage2}
+                      streaming={msg.streaming}
+                      progress={msg.progress}
+                      panel={msg.panel}
+                      executionMode={msg.executionMode || executionMode}
+                    />
                   )}
 
                   {/* For direct responses, skip Stage 1 and Stage 2 */}
@@ -296,40 +313,48 @@ export default function ChatInterface({
                               />
                             )}
 
-                            {/* Stage 2 */}
-                            {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
-                              <div className="stage-loading">
-                                <div className="spinner"></div>
-                                <span>Running Stage 2: Peer rankings...</span>
-                              </div>
-                            )}
-                            {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0 || msg.progress?.stage2) && (
-                              <Stage2
-                                rankings={msg.stage2}
-                                labelToModel={msg.analysis?.label_to_model || msg.metadata?.label_to_model}
-                                labelToMember={msg.analysis?.label_to_member}
-                                aggregateRankings={msg.metadata?.aggregate_rankings}
-                                streaming={msg.streaming?.stage2}
-                                roundInfo={msg.roundInfo}
-                                progress={msg.progress?.stage2}
-                              />
-                            )}
-
-                            {/* Stage 3 loading */}
-                            {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
-                              <div className="stage-loading">
-                                <div className="spinner"></div>
-                                <span>Running Stage 3: Final synthesis...</span>
-                              </div>
+                            {/* Stage 2 — skip for chat mode */}
+                            {(msg.executionMode || executionMode) !== 'chat' && (
+                              <>
+                                {msg.loading?.stage2 && !msg.stage2 && !Object.keys(msg.streaming?.stage2 || {}).length && (
+                                  <div className="stage-loading">
+                                    <div className="spinner"></div>
+                                    <span>Running Stage 2: Peer rankings...</span>
+                                  </div>
+                                )}
+                                {(msg.stage2 || Object.keys(msg.streaming?.stage2 || {}).length > 0 || msg.progress?.stage2) && (
+                                  <Stage2
+                                    rankings={msg.stage2}
+                                    labelToModel={msg.analysis?.label_to_model || msg.metadata?.label_to_model}
+                                    labelToMember={msg.analysis?.label_to_member}
+                                    aggregateRankings={msg.metadata?.aggregate_rankings}
+                                    streaming={msg.streaming?.stage2}
+                                    roundInfo={msg.roundInfo}
+                                    progress={msg.progress?.stage2}
+                                  />
+                                )}
+                              </>
                             )}
 
-                            {/* Stage 3 streaming */}
-                            {!isDeliberationComplete && (msg.streaming?.stage3?.content) && (
-                              <Stage3
-                                finalResponse={null}
-                                streaming={msg.streaming?.stage3}
-                                isDirect={false}
-                              />
+                            {/* Stage 3 loading — skip for chat and ranked modes */}
+                            {(msg.executionMode || executionMode) === 'full' && (
+                              <>
+                                {msg.loading?.stage3 && !msg.stage3 && !msg.streaming?.stage3?.content && (
+                                  <div className="stage-loading">
+                                    <div className="spinner"></div>
+                                    <span>Running Stage 3: Final synthesis...</span>
+                                  </div>
+                                )}
+
+                                {/* Stage 3 streaming */}
+                                {!isDeliberationComplete && (msg.streaming?.stage3?.content) && (
+                                  <Stage3
+                                    finalResponse={null}
+                                    streaming={msg.streaming?.stage3}
+                                    isDirect={false}
+                                  />
+                                )}
+                              </>
                             )}
                           </>
                         );
@@ -409,7 +434,10 @@ export default function ChatInterface({
                     <div className="completion-message">
                       <span className="completion-icon">✓</span>
                       <span className="completion-text">
-                        {(msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct response complete' : 'Council deliberation complete'}
+                        {(msg.responseType === 'direct' || msg.stage3?.type === 'direct') ? 'Direct response complete' :
+                         msg.executionMode === 'chat' ? 'Chat responses complete' :
+                         msg.executionMode === 'ranked' ? 'Ranked responses complete' :
+                         'Council deliberation complete'}
                       </span>
                     </div>
                   )}
@@ -442,39 +470,48 @@ export default function ChatInterface({
               <button type="button" className="cancel-edit-btn" onClick={cancelEdit}>Cancel</button>
             </div>
           )}
-          <textarea
-            className="message-input"
-            placeholder={editingIndex !== null
-              ? "Edit your message... (Shift+Enter for new line, Enter to submit)"
-              : messages.length === 0
-                ? "Ask your question... (Shift+Enter for new line, Enter to send)"
-                : "Ask a follow-up question... (Shift+Enter for new line, Enter to send)"}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={3}
-          />
-          <div className="send-button-group">
-            <button
-              type="submit"
-              className="send-button send-council"
-              disabled={!input.trim() || isLoading}
-              title="Send to full council for deliberation (Enter)"
-            >
-              {editingIndex !== null ? 'Update' : 'Council'}
-            </button>
-            {editingIndex === null && onSendDirect && (
-              <button
-                type="button"
-                className="send-button send-chairman"
-                disabled={!input.trim() || isLoading}
-                onClick={(e) => handleSubmit(e, { direct: true })}
-                title="Send to chairman only — fast follow-up (Cmd+Enter)"
-              >
-                Chair
-              </button>
-            )}
+          <div className="input-row">
+            <textarea
+              className="message-input"
+              placeholder={editingIndex !== null
+                ? "Edit your message... (Shift+Enter for new line, Enter to submit)"
+                : messages.length === 0
+                  ? "Ask your question... (Shift+Enter for new line, Enter to send)"
+                  : "Ask a follow-up question... (Shift+Enter for new line, Enter to send)"}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+              rows={3}
+            />
+            <div className="input-controls">
+              <ExecutionModeToggle
+                mode={executionMode}
+                onChange={onExecutionModeChange}
+                disabled={isLoading}
+              />
+              <div className="send-button-group">
+                <button
+                  type="submit"
+                  className="send-button send-council"
+                  disabled={!input.trim() || isLoading}
+                  title="Send to full council for deliberation (Enter)"
+                >
+                  {editingIndex !== null ? 'Update' : 'Council'}
+                </button>
+                {editingIndex === null && onSendDirect && (
+                  <button
+                    type="button"
+                    className="send-button send-chairman"
+                    disabled={!input.trim() || isLoading}
+                    onClick={(e) => handleSubmit(e, { direct: true })}
+                    title="Send to chairman only — fast follow-up (Cmd+Enter)"
+                  >
+                    Chair
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </form>
       )}

@@ -1,0 +1,234 @@
+.panel-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.panel-selector {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.panel-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.panel-question {
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+  margin: 0 0 16px 0;
+}
+
+.panel-members {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.panel-member {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  position: relative;
+}
+
+.member-info {
+  margin-bottom: 8px;
+}
+
+.member-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-role {
+  color: #888;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.member-reasoning {
+  color: #4a7fc7;
+  font-size: 11px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.swap-btn,
+.remove-btn {
+  background: none;
+  border: 1px solid #ddd;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.swap-btn:hover,
+.remove-btn:hover {
+  color: #333;
+  border-color: #999;
+}
+
+.remove-btn:hover {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.model-select {
+  width: 100%;
+  background: #ffffff;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.swap-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.swap-option {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+}
+
+.swap-option:hover {
+  background: #f0f7ff;
+}
+
+.swap-option:last-child {
+  border-bottom: none;
+}
+
+.swap-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.swap-role {
+  font-size: 11px;
+  color: #888;
+}
+
+.swap-tags {
+  font-size: 10px;
+  color: #4a7fc7;
+  margin-top: 2px;
+}
+
+.add-advisor {
+  margin-bottom: 16px;
+}
+
+.add-advisor-select {
+  width: 100%;
+  background: #f8f9fa;
+  color: #888;
+  border: 1px dashed #ccc;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+}
+
+.auto-accept-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+}
+
+.auto-accept-toggle input {
+  cursor: pointer;
+}
+
+.panel-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.cancel-btn {
+  background: none;
+  border: 1px solid #ddd;
+  color: #888;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.cancel-btn:hover {
+  color: #333;
+  border-color: #999;
+}
+
+.confirm-btn {
+  background: #4a7fc7;
+  border: none;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.confirm-btn:hover {
+  background: #3a6ab5;
+}

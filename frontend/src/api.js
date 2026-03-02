@@ -81,9 +81,10 @@ export const api = {
   /**
    * Send a message with token-level streaming.
    * panelOverride: optional array of {advisor_id, model} to override routing.
+   * executionMode: "chat" | "ranked" | "full"
    */
-  async sendMessageStreamTokens(conversationId, content, onEvent, councilId = 'personal', panelOverride = null, forceDirect = false) {
-    const body = { content, council_id: councilId };
+  async sendMessageStreamTokens(conversationId, content, onEvent, councilId = 'personal', panelOverride = null, forceDirect = false, executionMode = 'full') {
+    const body = { content, council_id: councilId, execution_mode: executionMode };
     if (panelOverride) {
       body.panel_override = panelOverride;
     }
@@ -165,6 +166,31 @@ export const api = {
     if (!response.ok) {
       const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(err.detail || 'Failed to update config');
+    }
+    return response.json();
+  },
+
+  /**
+   * Export all configuration as JSON.
+   */
+  async exportConfig() {
+    const response = await fetch('/api/config/export');
+    if (!response.ok) throw new Error('Failed to export config');
+    return response.json();
+  },
+
+  /**
+   * Import configuration from JSON.
+   */
+  async importConfig(data) {
+    const response = await fetch('/api/config/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(err.detail || 'Failed to import config');
     }
     return response.json();
   },

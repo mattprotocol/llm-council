@@ -37,7 +37,7 @@ from .config_loader import (
     get_advisor_roster_summary,
     get_routing_config,
     get_stage_temperatures,
-)
+)  # reload_config used for import/export
 from .config import reload_runtime_config
 from .leaderboard import get_council_leaderboard, get_all_leaderboards, get_advisor_leaderboard, get_all_advisor_leaderboards, record_deliberation_result, record_advisor_selection
 
@@ -84,6 +84,7 @@ class MessageRequest(BaseModel):
     council_id: str = "personal"
     panel_override: Optional[List[Dict[str, str]]] = None
     force_direct: bool = False
+    execution_mode: str = "full"  # "chat" | "ranked" | "full"
 
 
 class RouteRequest(BaseModel):
@@ -315,11 +316,16 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
 
     storage.add_user_message(conversation_id, content, council_id)
 
+    execution_mode = request.execution_mode  # "chat" | "ranked" | "full"
+
     async def event_stream():
         panel = panel_override  # May be None
         conversation_history = conversation.get("messages", [])
         usage_tracker = UsageAggregator()
         event_queue = asyncio.Queue()
+
+        # Emit execution mode so frontend knows what stages to expect
+        yield f"data: {json.dumps({'type': 'execution_mode', 'mode': execution_mode})}\n\n"
 
         def queue_event(event_type, data):
             """Put an event onto the queue for SSE emission."""
@@ -456,6 +462,31 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 yield f"data: {json.dumps({'type': 'error', 'message': 'No advisors responded in Stage 1'})}\n\n"
                 return
 
+            # Chat mode: stop after Stage 1 (responses only, no ranking/synthesis)
+            if execution_mode == "chat":
+                # Use best response as the "final" answer (first model's response)
+                best = stage1_results[0]
+                stage3_result = {"model": best["model"], "response": best.get("response", ""), "type": "chat_only"}
+                yield f"data: {json.dumps({'type': 'stage3_complete', 'model': best['model'], 'response': best.get('response', '')})}\n\n"
+
+                final_usage = usage_tracker.get_breakdown()
+                storage.add_assistant_message(
+                    conversation_id,
+                    stage1=stage1_results,
+                    stage2=[],
+                    stage3=stage3_result,
+                    council_id=council_id,
+                    panel=panel,
+                    usage=final_usage,
+                )
+
+                title_usage = await _generate_title(conversation_id, council_id, content, best.get("response", ""))
+                if title_usage:
+                    usage_tracker.record("title", get_title_model(), title_usage)
+                final_usage = usage_tracker.get_breakdown()
+                yield f"data: {json.dumps({'type': 'done', 'usage': final_usage})}\n\n"
+                return
+
             # ===== Stage 2: Rankings with progressive events =====
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
 
@@ -516,6 +547,51 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 if isinstance(result, dict) and result.get("usage"):
                     usage_tracker.record("stage2", result["model"], result["usage"], member_id=result.get("member_id", ""))
             yield f"data: {json.dumps({'type': 'usage_update', 'stage': 'stage2', 'usage': usage_tracker.get_stage_summary('stage2'), 'running_total': usage_tracker.get_total()})}\n\n"
+
+            # Ranked mode: stop after Stage 2 (responses + rankings, no synthesis)
+            if execution_mode == "ranked":
+                # Use top-ranked model's response as the "final" answer
+                agg = deliberation_meta.get("aggregate_rankings", []) if deliberation_meta else []
+                if agg:
+                    top_model = agg[0].get("model", "")
+                    top_response = next((r.get("response", "") for r in stage1_results if r["model"] == top_model), "")
+                else:
+                    top_model = stage1_results[0]["model"]
+                    top_response = stage1_results[0].get("response", "")
+
+                stage3_result = {"model": top_model, "response": top_response, "type": "ranked_only"}
+                yield f"data: {json.dumps({'type': 'stage3_complete', 'model': top_model, 'response': top_response})}\n\n"
+
+                final_usage = usage_tracker.get_breakdown()
+                storage.add_assistant_message(
+                    conversation_id,
+                    stage1=stage1_results,
+                    stage2=flat_stage2,
+                    stage3=stage3_result,
+                    council_id=council_id,
+                    analysis=deliberation_meta,
+                    panel=panel,
+                    usage=final_usage,
+                )
+
+                try:
+                    if agg:
+                        model_scores = {}
+                        for item in agg:
+                            m = item.get("model", "")
+                            if m:
+                                model_scores[m] = 1.0 / item.get("average_rank", 999)
+                        winner = agg[0].get("model", "") if agg else ""
+                        record_deliberation_result(council_id, model_scores, winner, panel=panel)
+                except Exception:
+                    pass
+
+                title_usage = await _generate_title(conversation_id, council_id, content, top_response)
+                if title_usage:
+                    usage_tracker.record("title", get_title_model(), title_usage)
+                final_usage = usage_tracker.get_breakdown()
+                yield f"data: {json.dumps({'type': 'done', 'usage': final_usage})}\n\n"
+                return
 
             # ===== Stage 3: Chairman synthesis with streaming =====
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
@@ -618,6 +694,69 @@ async def _generate_title(conversation_id: str, council_id: str, user_query: str
 @app.get("/api/config/temperatures")
 async def get_temperatures():
     return get_stage_temperatures()
+
+
+# ========== Import/Export Config Endpoints ==========
+
+
+@app.get("/api/config/export")
+async def export_config():
+    """Export all configuration (models + councils) as a single JSON bundle."""
+    try:
+        models_config = load_config()
+        councils_data = {}
+        councils_summary = get_councils_summary()
+        for c in councils_summary:
+            council = get_council(c["id"])
+            if council:
+                councils_data[c["id"]] = council
+        return {
+            "version": 1,
+            "models": models_config,
+            "councils": councils_data,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}")
+
+
+class ImportConfigRequest(BaseModel):
+    version: int = 1
+    models: Optional[Dict[str, Any]] = None
+    councils: Optional[Dict[str, Any]] = None
+
+
+@app.post("/api/config/import")
+async def import_config(request: ImportConfigRequest):
+    """Import configuration from a JSON bundle. Merges with existing config."""
+    results = {"models_updated": False, "councils_updated": [], "errors": []}
+    try:
+        if request.models:
+            models_data = request.models
+            save_data = {
+                "models": models_data.get("models", []),
+                "chairman": models_data.get("chairman", ""),
+            }
+            if models_data.get("title_model"):
+                save_data["title_model"] = models_data["title_model"]
+            if models_data.get("deliberation"):
+                save_data["deliberation"] = models_data["deliberation"]
+            save_models_config(save_data)
+            results["models_updated"] = True
+
+        if request.councils:
+            for council_id, council_data in request.councils.items():
+                try:
+                    data = {k: v for k, v in council_data.items() if k != "id"}
+                    save_council_config(council_id, data)
+                    results["councils_updated"].append(council_id)
+                except Exception as e:
+                    results["errors"].append(f"{council_id}: {str(e)}")
+
+        reload_config()
+        reload_runtime_config()
+        return {"status": "ok", **results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
 
 
 # ========== Leaderboard Endpoints ==========

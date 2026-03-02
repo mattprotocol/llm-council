@@ -22,6 +22,11 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Execution mode: "chat" | "ranked" | "full"
+  const [executionMode, setExecutionMode] = useState(
+    () => localStorage.getItem("executionMode") || "full"
+  );
+
   // Panel selection state
   const [pendingMessage, setPendingMessage] = useState(null);
   const [suggestedPanel, setSuggestedPanel] = useState(null);
@@ -59,10 +64,14 @@ function App() {
     init();
   }, []);
 
-  // Persist auto-accept preference
+  // Persist preferences
   useEffect(() => {
     localStorage.setItem("autoAcceptPanel", autoAcceptPanel.toString());
   }, [autoAcceptPanel]);
+
+  useEffect(() => {
+    localStorage.setItem("executionMode", executionMode);
+  }, [executionMode]);
 
   const loadConversations = async (throwOnError = false) => {
     try {
@@ -134,7 +143,6 @@ function App() {
         setAvailableModels(routeResult.models || []);
       } catch (err) {
         console.error("Routing failed, sending without panel:", err);
-        // Fall through to send without panel
         await sendWithPanel(content, null);
       } finally {
         setIsRouting(false);
@@ -195,6 +203,7 @@ function App() {
       analysis: null,
       panel: null,
       progress: { stage1: null, stage2: null },
+      executionMode: executionMode,
     };
     setCurrentConversation((prev) => ({
       ...prev,
@@ -212,6 +221,10 @@ function App() {
             const lastMsg = { ...messages[messages.length - 1] };
 
             switch (eventType) {
+              case "execution_mode":
+                lastMsg.executionMode = data.mode;
+                break;
+
               case "routing_complete":
               case "panel_confirmed":
                 lastMsg.panel = data.panel;
@@ -247,7 +260,7 @@ function App() {
               case "stage1_complete":
                 lastMsg.progress = {
                   ...lastMsg.progress,
-                  stage1: null, // Clear progress on complete
+                  stage1: null,
                 };
                 break;
 
@@ -339,7 +352,8 @@ function App() {
         },
         selectedCouncil,
         panelOverride,
-        forceDirect
+        forceDirect,
+        executionMode
       );
 
       setTimeout(async () => {
@@ -444,6 +458,8 @@ function App() {
           isLoading={isLoading || isRouting}
           councilName={currentCouncil?.name || "Council"}
           isRouting={isRouting}
+          executionMode={executionMode}
+          onExecutionModeChange={setExecutionMode}
         />
       </div>
     </div>
