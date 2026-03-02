@@ -40,6 +40,7 @@ from .config_loader import (
 )  # reload_config used for import/export
 from .config import reload_runtime_config
 from .leaderboard import get_council_leaderboard, get_all_leaderboards, get_advisor_leaderboard, get_all_advisor_leaderboards, record_deliberation_result, record_advisor_selection
+from .search import detect_search_intent, search, get_search_config
 
 
 @asynccontextmanager
@@ -404,6 +405,21 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                 except Exception:
                     pass  # non-critical
 
+            # ===== Web Search (if question benefits from current info) =====
+            search_context_str = None
+            if detect_search_intent(content):
+                yield f"data: {json.dumps({'type': 'search_start', 'query': content})}\n\n"
+                try:
+                    search_result = await search(content, max_results=3, fetch_content=True)
+                    if search_result.results:
+                        search_context_str = search_result.to_prompt_context()
+                        yield f"data: {json.dumps({'type': 'search_complete', 'provider': search_result.provider, 'results_count': len(search_result.results), 'results': [{'title': r.title, 'url': r.url, 'snippet': r.snippet[:200]} for r in search_result.results]})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'type': 'search_complete', 'provider': '', 'results_count': 0, 'results': []})}\n\n"
+                except Exception as e:
+                    print(f"Search error: {e}")
+                    yield f"data: {json.dumps({'type': 'search_complete', 'provider': 'error', 'results_count': 0, 'results': []})}\n\n"
+
             # ===== Stage 1: Collect responses with progressive events =====
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
 
@@ -433,6 +449,7 @@ async def send_message_stream_tokens(conversation_id: str, request: MessageReque
                     council_id=council_id,
                     panel=panel,
                     conversation_history=conversation_history,
+                    search_context=search_context_str,
                 )
             )
 
@@ -694,6 +711,41 @@ async def _generate_title(conversation_id: str, council_id: str, user_query: str
 @app.get("/api/config/temperatures")
 async def get_temperatures():
     return get_stage_temperatures()
+
+
+# ========== Search Endpoints ==========
+
+
+class SearchRequest(BaseModel):
+    query: str
+    max_results: int = 5
+    provider: Optional[str] = None
+    fetch_content: bool = False
+
+
+@app.get("/api/config/search")
+async def get_search_config_endpoint():
+    """Get search configuration (available providers, etc.)."""
+    return get_search_config()
+
+
+@app.post("/api/search")
+async def search_endpoint(request: SearchRequest):
+    """Perform a manual web search."""
+    result = await search(
+        request.query,
+        max_results=request.max_results,
+        provider=request.provider,
+        fetch_content=request.fetch_content,
+    )
+    return {
+        "query": result.query,
+        "provider": result.provider,
+        "results": [
+            {"title": r.title, "url": r.url, "snippet": r.snippet, "has_content": bool(r.content)}
+            for r in result.results
+        ],
+    }
 
 
 # ========== Import/Export Config Endpoints ==========

@@ -15,6 +15,7 @@ async def stage1_collect_responses_streaming(
     panel: Optional[List[Dict[str, str]]] = None,
     conversation_history: Optional[List[Dict[str, Any]]] = None,
     temperature: Optional[float] = None,
+    search_context: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Stage 1: Collect individual responses using council members."""
     response_config = get_response_config()
@@ -44,10 +45,15 @@ async def stage1_collect_responses_streaming(
                     if isinstance(s3, dict) and s3.get("response"):
                         messages.append({"role": "assistant", "content": s3["response"]})
 
+        # Build final user message, optionally with search context
+        query_text = user_query
+        if search_context:
+            query_text = f"{search_context}\n\nBased on the search results above and your own knowledge, please answer:\n\n{user_query}"
+
         if response_style == "concise":
-            messages.append({"role": "user", "content": f"Answer concisely and directly:\n\n{user_query}"})
+            messages.append({"role": "user", "content": f"Answer concisely and directly:\n\n{query_text}"})
         else:
-            messages.append({"role": "user", "content": user_query})
+            messages.append({"role": "user", "content": query_text})
 
         content = ""
         reasoning = ""

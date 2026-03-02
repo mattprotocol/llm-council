@@ -204,6 +204,7 @@ function App() {
       panel: null,
       progress: { stage1: null, stage2: null },
       executionMode: executionMode,
+      searchResults: null,
     };
     setCurrentConversation((prev) => ({
       ...prev,
@@ -223,6 +224,18 @@ function App() {
             switch (eventType) {
               case "execution_mode":
                 lastMsg.executionMode = data.mode;
+                break;
+
+              case "search_start":
+                lastMsg.searchResults = { status: "searching", query: data.query };
+                break;
+
+              case "search_complete":
+                lastMsg.searchResults = {
+                  status: "complete",
+                  provider: data.provider,
+                  results: data.results || [],
+                };
                 break;
 
               case "routing_complete":

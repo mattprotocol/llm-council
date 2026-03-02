@@ -278,6 +278,29 @@ export default function ChatInterface({
                     </div>
                   )}
 
+                  {/* Search results indicator */}
+                  {msg.searchResults?.status === 'searching' && (
+                    <div className="stage-loading">
+                      <div className="spinner"></div>
+                      <span>Searching the web...</span>
+                    </div>
+                  )}
+                  {msg.searchResults?.status === 'complete' && msg.searchResults.results?.length > 0 && (
+                    <details className="search-results-section">
+                      <summary className="search-results-summary">
+                        Web search: {msg.searchResults.results.length} results via {msg.searchResults.provider}
+                      </summary>
+                      <div className="search-results-list">
+                        {msg.searchResults.results.map((r, i) => (
+                          <div key={i} className="search-result-item">
+                            <a href={r.url} target="_blank" rel="noopener noreferrer" className="search-result-title">{r.title}</a>
+                            <p className="search-result-snippet">{r.snippet}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
                   {/* CouncilGrid — shows during active deliberation (non-direct responses) */}
                   {msg.responseType !== 'direct' && msg.stage3?.type !== 'direct' && msg.panel && !msg.stage3?.response && (
                     <CouncilGrid
